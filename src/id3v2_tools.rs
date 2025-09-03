@@ -1,5 +1,54 @@
+use std::fs::File;
 use std::io::Write;
+use std::io::{Read, Seek, SeekFrom};
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
+
+/// ID3v2 header information: (major_version, minor_version, flags, size)
+pub type Id3v2Header = (u8, u8, u8, u32);
+
+/// Check if the given header indicates an ID3v2 file and return the version
+pub fn detect_id3v2_version(header: &[u8]) -> Option<(u8, u8)> {
+    if header.len() >= 5 && header[0..3] == [0x49, 0x44, 0x33] {
+        // "ID3" found
+        let major_version = header[3];
+        let minor_version = header[4];
+        return Some((major_version, minor_version));
+    }
+    None
+}
+
+/// Check if the given header indicates an MPEG file (which might contain ID3v2)
+pub fn detect_mpeg_sync(header: &[u8]) -> bool {
+    // Check for MPEG sync pattern (0xFF followed by 0xFB, 0xFA, 0xF3, 0xF2)
+    if header.len() >= 2 && header[0] == 0xFF && (header[1] & 0xE0) == 0xE0 {
+        return true;
+    }
+    false
+}
+
+/// Read and parse ID3v2 header, returning version info and tag size
+pub fn read_id3v2_header(file: &mut File) -> Result<Option<Id3v2Header>, Box<dyn std::error::Error>> {
+    // Seek to beginning and read ID3v2 header
+    file.seek(SeekFrom::Start(0))?;
+    let mut id3_header = [0u8; 10];
+
+    if file.read_exact(&mut id3_header).is_err() {
+        return Ok(None);
+    }
+
+    if &id3_header[0..3] != b"ID3" {
+        return Ok(None);
+    }
+
+    let version_major = id3_header[3];
+    let version_minor = id3_header[4];
+    let flags = id3_header[5];
+
+    // Calculate tag size (synchsafe integer)
+    let size = decode_synchsafe_int(&id3_header[6..10]);
+
+    Ok(Some((version_major, version_minor, flags, size)))
+}
 
 /// Decode a synchsafe integer (7 bits per byte) as used in ID3v2
 pub fn decode_synchsafe_int(bytes: &[u8]) -> u32 {

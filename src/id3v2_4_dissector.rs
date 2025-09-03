@@ -1,7 +1,89 @@
 use crate::id3v2_tools::*;
+use crate::dissector::MediaDissector;
 use std::fs::File;
 use std::io::{Read, Write};
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
+
+/// ID3v2.4 dissector for MP3 files
+pub struct Id3v24Dissector;
+
+impl MediaDissector for Id3v24Dissector {
+    fn media_type(&self) -> &'static str {
+        "ID3v2.4"
+    }
+
+    fn dissect(&self, file: &mut File) -> Result<(), Box<dyn std::error::Error>> {
+        dissect_id3v2_4_file(file)
+    }
+
+    fn can_handle(&self, header: &[u8]) -> bool {
+        // Check for ID3v2.4 specifically
+        if let Some((major, _minor)) = detect_id3v2_version(header) {
+            return major == 4;
+        }
+
+        false // Don't fall back to MPEG sync for v2.4 since v2.3 should handle that
+    }
+
+    fn name(&self) -> &'static str {
+        "ID3v2.4 Dissector"
+    }
+}
+
+/// Dissect an ID3v2.4 file from the beginning
+pub fn dissect_id3v2_4_file(file: &mut File) -> Result<(), Box<dyn std::error::Error>> {
+    let mut stdout = StandardStream::stdout(ColorChoice::Auto);
+
+    // Read and parse ID3v2 header
+    if let Some((major, minor, flags, size)) = read_id3v2_header(file)? {
+        if major == 4 {
+            stdout.set_color(ColorSpec::new().set_fg(Some(Color::Yellow)).set_bold(true))?;
+            writeln!(&mut stdout, "\nID3v2 Header Found:")?;
+            stdout.reset()?;
+
+            writeln!(&mut stdout, "  Version: 2.{}.{}", major, minor)?;
+            writeln!(&mut stdout, "  Flags: 0x{:02X}", flags)?;
+
+            // Interpret header flags
+            if flags != 0 {
+                stdout.set_color(ColorSpec::new().set_fg(Some(Color::Cyan)))?;
+                write!(&mut stdout, "    ")?;
+                let mut flag_parts = Vec::new();
+                if flags & 0x80 != 0 {
+                    flag_parts.push("unsynchronisation");
+                }
+                if flags & 0x40 != 0 {
+                    flag_parts.push("extended_header");
+                }
+                if flags & 0x20 != 0 {
+                    flag_parts.push("experimental");
+                }
+                if flags & 0x10 != 0 {
+                    flag_parts.push("footer_present");
+                }
+                if !flag_parts.is_empty() {
+                    writeln!(&mut stdout, "Active: {}", flag_parts.join(", "))?;
+                }
+                stdout.reset()?;
+            }
+
+            writeln!(&mut stdout, "  Tag Size: {} bytes", size)?;
+
+            if size > 0 && size < 1_000_000 {
+                // Basic sanity check
+                dissect_id3v2_4(file, size, flags)?;
+            }
+        } else {
+            stdout.set_color(ColorSpec::new().set_fg(Some(Color::Red)))?;
+            writeln!(&mut stdout, "  Expected ID3v2.4, found version 2.{}", major)?;
+            stdout.reset()?;
+        }
+    } else {
+        writeln!(&mut stdout, "No ID3v2 header found")?;
+    }
+
+    Ok(())
+}
 
 pub fn dissect_id3v2_4(file: &mut File, tag_size: u32, flags: u8) -> Result<(), Box<dyn std::error::Error>> {
     let mut stdout = StandardStream::stdout(ColorChoice::Auto);

@@ -1,6 +1,33 @@
+use crate::dissector::MediaDissector;
 use std::fs::File;
-use std::io::{Seek, SeekFrom, Read, Write};
+use std::io::{Read, Seek, SeekFrom, Write};
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
+
+/// ISO Base Media File Format dissector for MP4 files
+pub struct IsobmffDissector;
+
+impl MediaDissector for IsobmffDissector {
+    fn media_type(&self) -> &'static str {
+        "ISO BMFF"
+    }
+
+    fn dissect(&self, file: &mut File) -> Result<(), Box<dyn std::error::Error>> {
+        dissect_isobmff(file)
+    }
+
+    fn can_handle(&self, header: &[u8]) -> bool {
+        // ISO Base Media File Format detection - look for ftyp box
+        if header.len() >= 8 && header[4..8] == [0x66, 0x74, 0x79, 0x70] {
+            // "ftyp"
+            return true;
+        }
+        false
+    }
+
+    fn name(&self) -> &'static str {
+        "ISO BMFF Dissector"
+    }
+}
 
 pub fn dissect_isobmff(file: &mut File) -> Result<(), Box<dyn std::error::Error>> {
     let mut stdout = StandardStream::stdout(ColorChoice::Auto);

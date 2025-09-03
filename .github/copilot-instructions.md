@@ -16,8 +16,9 @@ This is a Rust project called "supertool" - a versatile media file analysis tool
 
 ### Project Structure
 - Source code in `src/`
-- Main entry point: `src/main.rs` (CLI interface and file detection)
+- Main entry point: `src/main.rs` (CLI interface and dissector builder)
 - Core modules:
+  - `src/dissector.rs` - Common trait and builder pattern for all dissectors
   - `src/id3v2_dissector.rs` - Main ID3v2 header parsing and version dispatch
   - `src/id3v2_3_dissector.rs` - Specialized ID3v2.3 frame dissection
   - `src/id3v2_4_dissector.rs` - Specialized ID3v2.4 frame dissection
@@ -31,6 +32,8 @@ This is a Rust project called "supertool" - a versatile media file analysis tool
 - `termcolor 1.4` for cross-platform colored terminal output
 
 ### Technical Implementation
+- **Common Dissector Trait**: All dissectors implement the `MediaDissector` trait providing unified interface with `dissect()`, `can_handle()`, and metadata methods
+- **Dissector Builder Pattern**: `DissectorBuilder` analyzes file headers and returns the appropriate dissector automatically
 - **ID3v2 Support**: Specification-compliant parsing for ID3v2.3 and ID3v2.4 with proper unsynchronization handling, frame flag interpretation, and UTF-16 text support
 - **ISO BMFF Support**: Box header parsing with size and type detection for MP4 containers
 - **File Format Detection**: Automatic detection based on file headers (ID3 tags, MPEG sync patterns, ftyp boxes)
@@ -81,3 +84,7 @@ This is a Rust project called "supertool" - a versatile media file analysis tool
 - **Reasoning**: Professional tool structure that can be extended with additional commands
 - **ID3v2 dissector split**: Separated version-specific frame parsing into dedicated modules
 - **Reasoning**: ID3v2.3 and ID3v2.4 have different parsing requirements (big-endian vs synchsafe integers, different frame flags), splitting improves code clarity and maintainability
+- **Common dissector trait implementation**: Added `MediaDissector` trait and `DissectorBuilder` pattern
+- **Reasoning**: Provides unified interface for all dissector types, enables automatic format detection and dissector selection, makes code more extensible and maintainable following Rust trait-based design patterns
+- **Separate ID3v2 dissector implementations**: Moved `MediaDissector` trait implementations to individual dissector files (id3v2_3_dissector.rs, id3v2_4_dissector.rs, isobmff_dissector.rs)
+- **Reasoning**: Each dissector now owns its complete implementation including format detection logic, making the codebase more modular and maintainable. Common ID3v2 functionality remains in id3v2_tools.rs for shared use.
