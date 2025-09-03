@@ -325,6 +325,8 @@ impl fmt::Display for Id3v2Frame {
             }
         }
 
+        writeln!(f)?; // Add newline at the end of frame display
+        writeln!(f)?; // Add blank line for better separation between frames
         Ok(())
     }
 }
