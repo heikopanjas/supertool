@@ -1,33 +1,20 @@
-use clap::{Parser, Subcommand};
+use crate::cli::{Cli, Commands};
+use clap::Parser;
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
-mod dissector;
+mod cli;
+mod dissector_builder;
 mod id3v2_3_dissector;
 mod id3v2_4_dissector;
 mod id3v2_tools;
 mod isobmff_dissector;
+mod media_dissector;
+mod unknown_dissector;
 
-use dissector::DissectorBuilder;
-
-#[derive(Parser)]
-#[command(name = "supertool")]
-#[command(about = "A versatile media file analysis tool")]
-struct Cli {
-    #[command(subcommand)]
-    command: Commands,
-}
-
-#[derive(Subcommand)]
-enum Commands {
-    /// Dissect and analyze media files (ID3v2/MP3, ISO BMFF/MP4)
-    Dissect {
-        /// Path to the media file to analyze
-        file: PathBuf,
-    },
-}
+use dissector_builder::DissectorBuilder;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();

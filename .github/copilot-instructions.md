@@ -16,15 +16,19 @@ This is a Rust project called "supertool" - a versatile media file analysis tool
 
 ### Project Structure
 - Source code in `src/`
-- Main entry point: `src/main.rs` (CLI interface and dissector builder)
+- Main entry point: `src/main.rs` (CLI interface and dissector coordination)
 - Core modules:
-  - `src/dissector.rs` - Common trait and builder pattern for all dissectors
+  - `src/media_dissector.rs` - Common trait for all dissectors
+  - `src/dissector_builder.rs` - Builder pattern for automatic dissector selection
+  - `src/unknown_dissector.rs` - Fallback dissector for unrecognized formats
+  - `src/cli.rs` - CLI argument structures and commands
   - `src/id3v2_dissector.rs` - Main ID3v2 header parsing and version dispatch
   - `src/id3v2_3_dissector.rs` - Specialized ID3v2.3 frame dissection
   - `src/id3v2_4_dissector.rs` - Specialized ID3v2.4 frame dissection
   - `src/id3v2_tools.rs` - Utility functions for ID3v2 processing (synchsafe integers, unsynchronization, frame flags)
   - `src/isobmff_dissector.rs` - ISO Base Media File Format box parsing for MP4 files
 - Use Cargo for dependency management and builds
+- Follow "one struct/trait per file" organization principle
 
 ### Dependencies
 - `clap 4.5` with derive features for CLI argument parsing
@@ -88,3 +92,5 @@ This is a Rust project called "supertool" - a versatile media file analysis tool
 - **Reasoning**: Provides unified interface for all dissector types, enables automatic format detection and dissector selection, makes code more extensible and maintainable following Rust trait-based design patterns
 - **Separate ID3v2 dissector implementations**: Moved `MediaDissector` trait implementations to individual dissector files (id3v2_3_dissector.rs, id3v2_4_dissector.rs, isobmff_dissector.rs)
 - **Reasoning**: Each dissector now owns its complete implementation including format detection logic, making the codebase more modular and maintainable. Common ID3v2 functionality remains in id3v2_tools.rs for shared use.
+- **Modular restructuring completed**: Implemented "one struct/trait per file" organization principle
+- **Reasoning**: Split original `dissector.rs` into separate files: `media_dissector.rs` (trait), `dissector_builder.rs` (builder struct), `unknown_dissector.rs` (fallback struct), and `cli.rs` (CLI structures). This follows Rust best practices for maintainable, focused modules with single responsibilities, making the codebase easier to navigate and modify.

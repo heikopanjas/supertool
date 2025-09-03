@@ -1,20 +1,7 @@
+use crate::media_dissector::MediaDissector;
+use crate::unknown_dissector::UnknownDissector;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
-
-/// Common trait for all media file dissectors
-pub trait MediaDissector {
-    /// The type of media this dissector handles
-    fn media_type(&self) -> &'static str;
-
-    /// Dissect the media file and output analysis results
-    fn dissect(&self, file: &mut File) -> Result<(), Box<dyn std::error::Error>>;
-
-    /// Check if this dissector can handle the given file header
-    fn can_handle(&self, header: &[u8]) -> bool;
-
-    /// Get a descriptive name for this dissector
-    fn name(&self) -> &'static str;
-}
 
 /// Builder for creating the appropriate dissector based on file content
 pub struct DissectorBuilder;
@@ -54,34 +41,5 @@ impl DissectorBuilder {
 impl Default for DissectorBuilder {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-/// Fallback dissector for unknown file formats
-pub struct UnknownDissector;
-
-impl MediaDissector for UnknownDissector {
-    fn media_type(&self) -> &'static str {
-        "Unknown"
-    }
-
-    fn dissect(&self, _file: &mut File) -> Result<(), Box<dyn std::error::Error>> {
-        use std::io::Write;
-        use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
-
-        let mut stdout = StandardStream::stdout(ColorChoice::Auto);
-        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Red)))?;
-        writeln!(&mut stdout, "Unknown format - no suitable dissector available")?;
-        stdout.reset()?;
-
-        Ok(())
-    }
-
-    fn can_handle(&self, _header: &[u8]) -> bool {
-        true // Always can handle as fallback
-    }
-
-    fn name(&self) -> &'static str {
-        "Unknown Format Dissector"
     }
 }

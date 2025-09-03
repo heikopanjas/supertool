@@ -1,5 +1,5 @@
 use crate::id3v2_tools::*;
-use crate::dissector::MediaDissector;
+use crate::media_dissector::MediaDissector;
 use std::fs::File;
 use std::io::{Read, Write};
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
