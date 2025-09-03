@@ -91,7 +91,7 @@ impl Id3v2Frame {
                     return Err(format!("Text encoding {:?} is not valid for ID3v2.{}", text_frame.encoding, version_major));
                 }
                 Id3v2FrameContent::Text(text_frame)
-            },
+            }
             // URL link frames (no encoding to validate)
             | id if id.starts_with('W') && id != "WXXX" => Id3v2FrameContent::Url(UrlFrame::parse(&self.data)?),
             // User-defined frames
@@ -102,7 +102,7 @@ impl Id3v2Frame {
                     return Err(format!("Text encoding {:?} is not valid for ID3v2.{}", user_text_frame.encoding, version_major));
                 }
                 Id3v2FrameContent::UserText(user_text_frame)
-            },
+            }
             | "WXXX" => {
                 let user_url_frame = UserUrlFrame::parse(&self.data)?;
                 // Validate text encoding for this ID3v2 version
@@ -110,7 +110,7 @@ impl Id3v2Frame {
                     return Err(format!("Text encoding {:?} is not valid for ID3v2.{}", user_url_frame.encoding, version_major));
                 }
                 Id3v2FrameContent::UserUrl(user_url_frame)
-            },
+            }
             // Comment frames
             | "COMM" | "USLT" => {
                 let comment_frame = CommentFrame::parse(&self.data)?;
@@ -119,7 +119,7 @@ impl Id3v2Frame {
                     return Err(format!("Text encoding {:?} is not valid for ID3v2.{}", comment_frame.encoding, version_major));
                 }
                 Id3v2FrameContent::Comment(comment_frame)
-            },
+            }
             // Attached picture
             | "APIC" => {
                 let picture_frame = AttachedPictureFrame::parse(&self.data)?;
@@ -128,7 +128,7 @@ impl Id3v2Frame {
                     return Err(format!("Text encoding {:?} is not valid for ID3v2.{}", picture_frame.encoding, version_major));
                 }
                 Id3v2FrameContent::Picture(picture_frame)
-            },
+            }
             // Unique file identifier (no encoding)
             | "UFID" => Id3v2FrameContent::UniqueFileId(UniqueFileIdFrame::parse(&self.data)?),
             // Chapter frames (may contain sub-frames with their own validation)
@@ -221,23 +221,91 @@ impl fmt::Display for Id3v2Frame {
             write!(f, " - Flags: 0x{:04X}", self.flags)?;
         }
 
-        // Show parsed content preview
-        if let Some(text) = self.get_text() {
-            if !text.is_empty() {
-                write!(f, " - Text: \"{}\"", text.chars().take(50).collect::<String>())?;
-                if text.len() > 50 {
-                    write!(f, "...")?;
+        // Show detailed parsed content based on frame type
+        if let Some(content) = &self.content {
+            match content {
+                | Id3v2FrameContent::Text(text_frame) => {
+                    writeln!(f)?;
+                    write!(f, "    Encoding: {}", text_frame.encoding)?;
+                    if text_frame.strings.len() > 1 {
+                        writeln!(f)?;
+                        write!(f, "    Values ({} strings):", text_frame.strings.len())?;
+                        for (i, string) in text_frame.strings.iter().enumerate() {
+                            writeln!(f)?;
+                            if string.len() > 80 {
+                                write!(f, "      [{}] \"{}...\"", i + 1, string.chars().take(80).collect::<String>())?;
+                            } else {
+                                write!(f, "      [{}] \"{}\"", i + 1, string)?;
+                            }
+                        }
+                    } else if !text_frame.text.is_empty() {
+                        writeln!(f)?;
+                        if text_frame.text.len() > 100 {
+                            write!(f, "    Value: \"{}...\"", text_frame.text.chars().take(100).collect::<String>())?;
+                        } else {
+                            write!(f, "    Value: \"{}\"", text_frame.text)?;
+                        }
+                    }
+                }
+                | Id3v2FrameContent::UserText(user_text_frame) => {
+                    writeln!(f)?;
+                    write!(f, "    Encoding: {}", user_text_frame.encoding)?;
+                    writeln!(f)?;
+                    write!(f, "    Description: \"{}\"", user_text_frame.description)?;
+                    writeln!(f)?;
+                    if user_text_frame.value.len() > 100 {
+                        write!(f, "    Value: \"{}...\"", user_text_frame.value.chars().take(100).collect::<String>())?;
+                    } else {
+                        write!(f, "    Value: \"{}\"", user_text_frame.value)?;
+                    }
+                }
+                | Id3v2FrameContent::Url(url_frame) => {
+                    writeln!(f)?;
+                    write!(f, "    URL: \"{}\"", url_frame.url)?;
+                }
+                | Id3v2FrameContent::UserUrl(user_url_frame) => {
+                    writeln!(f)?;
+                    write!(f, "    Encoding: {}", user_url_frame.encoding)?;
+                    writeln!(f)?;
+                    write!(f, "    Description: \"{}\"", user_url_frame.description)?;
+                    writeln!(f)?;
+                    write!(f, "    URL: \"{}\"", user_url_frame.url)?;
+                }
+                | _ => {
+                    // For other frame types not yet enhanced, show basic info
+                    if let Some(text) = self.get_text() {
+                        if !text.is_empty() {
+                            write!(f, " - Text: \"{}\"", text.chars().take(50).collect::<String>())?;
+                            if text.len() > 50 {
+                                write!(f, "...")?;
+                            }
+                        }
+                    } else if let Some(url) = self.get_url() {
+                        if !url.is_empty() {
+                            write!(f, " - URL: \"{}\"", url)?;
+                        }
+                    }
                 }
             }
-        } else if let Some(url) = self.get_url() {
-            if !url.is_empty() {
-                write!(f, " - URL: \"{}\"", url)?;
+        } else {
+            // Fallback for unparsed content
+            if let Some(text) = self.get_text() {
+                if !text.is_empty() {
+                    write!(f, " - Text: \"{}\"", text.chars().take(50).collect::<String>())?;
+                    if text.len() > 50 {
+                        write!(f, "...")?;
+                    }
+                }
+            } else if let Some(url) = self.get_url() {
+                if !url.is_empty() {
+                    write!(f, " - URL: \"{}\"", url)?;
+                }
             }
         }
 
         if let Some(embedded) = &self.embedded_frames {
             if !embedded.is_empty() {
-                write!(f, " - {} embedded sub-frame(s)", embedded.len())?;
+                write!(f, "\n    {} embedded sub-frame(s)", embedded.len())?;
             }
         }
 

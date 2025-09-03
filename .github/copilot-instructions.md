@@ -22,7 +22,6 @@ This is a Rust project called "supertool" - a versatile media file analysis tool
   - `src/dissector_builder.rs` - Builder pattern for automatic dissector selection
   - `src/unknown_dissector.rs` - Fallback dissector for unrecognized formats
   - `src/cli.rs` - CLI argument structures and commands
-  - `src/id3v2_dissector.rs` - Main ID3v2 header parsing and version dispatch
   - `src/id3v2_3_dissector.rs` - Specialized ID3v2.3 frame dissection
   - `src/id3v2_4_dissector.rs` - Specialized ID3v2.4 frame dissection
   - `src/id3v2_frame.rs` - ID3v2 frame data structure and parsing utilities
@@ -126,3 +125,5 @@ This is a Rust project called "supertool" - a versatile media file analysis tool
 - **Reasoning**: Enhanced `id3v2_dissector.rs`, `id3v2_3_dissector.rs`, and `id3v2_tools.rs` with comprehensive diagnostic output including raw byte inspection, synchsafe integer validation, frame parsing status, and error reporting. Added validation for synchsafe format violations, size sanity checks, and detailed frame-by-frame parsing diagnostics. This enables identification of parsing issues, corrupted files, and specification violations. Diagnostics include color-coded output for different message types (errors, warnings, info) and summary statistics for parsed frames, errors, and unprocessed bytes. Essential for debugging sample files with large or unusual tag structures.
 - **Podcast-aware size limits implemented**: Adjusted tag size limits to accommodate real-world podcast content with chapter images
 - **Reasoning**: Increased tag size limits from 10MB to 100MB hard limit to support podcast MP3s with embedded images in CHAP frames. Modern podcasts can have dozens of chapters each with embedded artwork, easily resulting in 20-50MB+ ID3v2 tags. Added tiered warning system (10MB = info, 50MB = warning, 100MB = error) and enhanced statistics showing chapter count, image count, total image size, and large frame detection. This ensures the tool works with legitimate large podcast files while still detecting truly corrupted data. Addresses real-world usage patterns where podcast publishers embed chapter-specific images.
+- **Removed obsolete ID3v2 dissector module**: Deleted `src/id3v2_dissector.rs` file and updated module structure
+- **Reasoning**: The `id3v2_dissector.rs` module was no longer needed with the current architecture where ID3v2.3 and ID3v2.4 dissectors handle their own parsing logic independently. Removing this file simplifies the module structure and eliminates redundant code. The current architecture with separate `id3v2_3_dissector.rs` and `id3v2_4_dissector.rs` modules provides cleaner separation of version-specific logic without needing a central dispatch module.

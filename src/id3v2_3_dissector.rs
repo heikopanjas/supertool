@@ -36,7 +36,7 @@ pub fn parse_id3v2_3_frame(buffer: &[u8], pos: usize) -> Option<Id3v2Frame> {
 
     let data = buffer[pos + 10..pos + 10 + frame_size as usize].to_vec();
 
-    let mut frame = Id3v2Frame::new(frame_id, frame_size, frame_flags, data);
+    let mut frame = Id3v2Frame::new(frame_id.clone(), frame_size, frame_flags, data);
 
     // Parse the frame content using the new typed system (ID3v2.3)
     let _ = frame.parse_content(3); // Ignore parsing errors, keep raw data

@@ -61,11 +61,18 @@ pub fn decode_text_with_encoding(data: &[u8], encoding: TextEncoding) -> Result<
     while pos < data.len() {
         // Find next terminator
         let start = pos;
+        let mut found_terminator = false;
+
         while pos + terminator_len <= data.len() {
             if is_null_terminator(&data[pos..pos + terminator_len], encoding) {
+                found_terminator = true;
                 break;
             }
-            pos += 1;
+            // For UTF-16, move by 2 bytes to stay aligned, for single-byte encodings move by 1
+            match encoding {
+                | TextEncoding::Utf16Bom | TextEncoding::Utf16Be => pos += 2,
+                | _ => pos += 1,
+            }
         }
 
         if start < pos {
@@ -75,11 +82,11 @@ pub fn decode_text_with_encoding(data: &[u8], encoding: TextEncoding) -> Result<
             }
         }
 
-        // Skip terminator
-        if pos + terminator_len <= data.len() {
+        if found_terminator {
+            // Skip terminator
             pos += terminator_len;
         } else {
-            // No terminator at end, include remaining data
+            // No terminator found, include remaining data if any
             if pos < data.len() {
                 let text = decode_text_with_encoding_simple(&data[pos..], encoding)?;
                 if !text.is_empty() {
