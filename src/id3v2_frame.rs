@@ -298,6 +298,26 @@ impl fmt::Display for Id3v2Frame {
                         write!(f, "    Text: \"{}\"", comment_frame.text)?;
                     }
                 }
+                | Id3v2FrameContent::Picture(picture_frame) => {
+                    writeln!(f)?;
+                    write!(f, "    Encoding: {}", picture_frame.encoding)?;
+                    writeln!(f)?;
+                    write!(f, "    MIME type: {}", picture_frame.mime_type)?;
+                    writeln!(f)?;
+                    write!(f, "    Picture type: {} ({})", picture_frame.picture_type, picture_frame.picture_type_description())?;
+                    if !picture_frame.description.is_empty() {
+                        writeln!(f)?;
+                        write!(f, "    Description: \"{}\"", picture_frame.description)?;
+                    }
+                    writeln!(f)?;
+                    write!(f, "    Data size: {} bytes", picture_frame.picture_data.len())?;
+                }
+                | Id3v2FrameContent::UniqueFileId(ufid_frame) => {
+                    writeln!(f)?;
+                    write!(f, "    Owner: \"{}\"", ufid_frame.owner_identifier)?;
+                    writeln!(f)?;
+                    write!(f, "    Identifier: {} bytes", ufid_frame.identifier.len())?;
+                }
                 | Id3v2FrameContent::Chapter(chapter_frame) => {
                     writeln!(f)?;
                     write!(f, "    Element ID: \"{}\"", chapter_frame.element_id)?;
@@ -323,7 +343,18 @@ impl fmt::Display for Id3v2Frame {
                                     | Id3v2FrameContent::Text(text_frame) => {
                                         writeln!(f)?;
                                         write!(f, "          Encoding: {}", text_frame.encoding)?;
-                                        if !text_frame.text.is_empty() {
+                                        if text_frame.strings.len() > 1 {
+                                            writeln!(f)?;
+                                            write!(f, "          Values ({} strings):", text_frame.strings.len())?;
+                                            for (i, string) in text_frame.strings.iter().enumerate() {
+                                                writeln!(f)?;
+                                                if string.len() > 60 {
+                                                    write!(f, "            [{}] \"{}...\"", i + 1, string.chars().take(60).collect::<String>())?;
+                                                } else {
+                                                    write!(f, "            [{}] \"{}\"", i + 1, string)?;
+                                                }
+                                            }
+                                        } else if !text_frame.text.is_empty() {
                                             writeln!(f)?;
                                             let display_text = if text_frame.text.len() > 60 {
                                                 format!("{}...", text_frame.text.chars().take(60).collect::<String>())
@@ -459,7 +490,18 @@ impl fmt::Display for Id3v2Frame {
                                     | Id3v2FrameContent::Text(text_frame) => {
                                         writeln!(f)?;
                                         write!(f, "          Encoding: {}", text_frame.encoding)?;
-                                        if !text_frame.text.is_empty() {
+                                        if text_frame.strings.len() > 1 {
+                                            writeln!(f)?;
+                                            write!(f, "          Values ({} strings):", text_frame.strings.len())?;
+                                            for (i, string) in text_frame.strings.iter().enumerate() {
+                                                writeln!(f)?;
+                                                if string.len() > 60 {
+                                                    write!(f, "            [{}] \"{}...\"", i + 1, string.chars().take(60).collect::<String>())?;
+                                                } else {
+                                                    write!(f, "            [{}] \"{}\"", i + 1, string)?;
+                                                }
+                                            }
+                                        } else if !text_frame.text.is_empty() {
                                             writeln!(f)?;
                                             let display_text = if text_frame.text.len() > 60 {
                                                 format!("{}...", text_frame.text.chars().take(60).collect::<String>())
