@@ -10,6 +10,17 @@ use crate::id3v2_user_text_frame::UserTextFrame;
 use crate::id3v2_user_url_frame::UserUrlFrame;
 use std::fmt;
 
+/// Format milliseconds as hh:mm:ss.ms
+fn format_timestamp(ms: u32) -> String {
+    let total_seconds = ms / 1000;
+    let milliseconds = ms % 1000;
+    let hours = total_seconds / 3600;
+    let minutes = (total_seconds % 3600) / 60;
+    let seconds = total_seconds % 60;
+
+    format!("{:02}:{:02}:{:02}.{:03}", hours, minutes, seconds, milliseconds)
+}
+
 /// Parsed content of an ID3v2 frame
 #[derive(Debug, Clone)]
 pub enum Id3v2FrameContent {
@@ -285,6 +296,67 @@ impl fmt::Display for Id3v2Frame {
                         write!(f, "    Text: \"{}...\"", comment_frame.text.chars().take(100).collect::<String>())?;
                     } else {
                         write!(f, "    Text: \"{}\"", comment_frame.text)?;
+                    }
+                }
+                | Id3v2FrameContent::Chapter(chapter_frame) => {
+                    writeln!(f)?;
+                    write!(f, "    Element ID: \"{}\"", chapter_frame.element_id)?;
+                    writeln!(f)?;
+                    let start_formatted = format_timestamp(chapter_frame.start_time);
+                    let end_formatted = format_timestamp(chapter_frame.end_time);
+                    let duration_formatted = format_timestamp(chapter_frame.duration());
+                    write!(f, "    Time: {} - {} (duration: {})", start_formatted, end_formatted, duration_formatted)?;
+                    if chapter_frame.has_byte_offsets() {
+                        writeln!(f)?;
+                        write!(f, "    Byte offsets: {} - {}", chapter_frame.start_offset, chapter_frame.end_offset)?;
+                    }
+                    if !chapter_frame.sub_frames.is_empty() {
+                        writeln!(f)?;
+                        write!(f, "    Sub-frames: {} embedded frame(s)", chapter_frame.sub_frames.len())?;
+                        for (i, sub_frame) in chapter_frame.sub_frames.iter().enumerate() {
+                            writeln!(f)?;
+                            write!(f, "      [{}] {} - {}", i + 1, sub_frame.id, get_frame_description(&sub_frame.id))?;
+                            if let Some(text) = sub_frame.get_text() {
+                                if !text.is_empty() {
+                                    let display_text = if text.len() > 60 {
+                                        format!("{}...", text.chars().take(60).collect::<String>())
+                                    } else {
+                                        text.to_string()
+                                    };
+                                    write!(f, " (\"{}\")", display_text)?;
+                                }
+                            }
+                        }
+                    }
+                }
+                | Id3v2FrameContent::TableOfContents(toc_frame) => {
+                    writeln!(f)?;
+                    write!(f, "    Element ID: \"{}\"", toc_frame.element_id)?;
+                    writeln!(f)?;
+                    write!(f, "    Flags: Top-level: {}, Ordered: {}", toc_frame.top_level, toc_frame.ordered)?;
+                    writeln!(f)?;
+                    write!(f, "    Child elements ({}):", toc_frame.child_count())?;
+                    for (i, child_id) in toc_frame.child_element_ids.iter().enumerate() {
+                        writeln!(f)?;
+                        write!(f, "      [{}] \"{}\"", i + 1, child_id)?;
+                    }
+                    if toc_frame.has_sub_frames() {
+                        writeln!(f)?;
+                        write!(f, "    Sub-frames: {} embedded frame(s)", toc_frame.sub_frames.len())?;
+                        for (i, sub_frame) in toc_frame.sub_frames.iter().enumerate() {
+                            writeln!(f)?;
+                            write!(f, "      [{}] {} - {}", i + 1, sub_frame.id, get_frame_description(&sub_frame.id))?;
+                            if let Some(text) = sub_frame.get_text() {
+                                if !text.is_empty() {
+                                    let display_text = if text.len() > 60 {
+                                        format!("{}...", text.chars().take(60).collect::<String>())
+                                    } else {
+                                        text.to_string()
+                                    };
+                                    write!(f, " (\"{}\")", display_text)?;
+                                }
+                            }
+                        }
                     }
                 }
                 | _ => {
