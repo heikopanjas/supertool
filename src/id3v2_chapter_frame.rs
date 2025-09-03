@@ -132,7 +132,13 @@ impl ChapterFrame {
             let data = frame_data[pos + 10..pos + 10 + frame_size as usize].to_vec();
 
             // Create the embedded frame
-            let embedded_frame = Id3v2Frame::new(frame_id, frame_size, frame_flags, data);
+            let mut embedded_frame = Id3v2Frame::new(frame_id, frame_size, frame_flags, data);
+
+            // Parse the embedded frame content for rich display
+            if let Err(_e) = embedded_frame.parse_content(version_major) {
+                // If parsing fails, we still keep the frame with raw data
+            }
+
             embedded_frames.push(embedded_frame);
 
             // Move to next frame

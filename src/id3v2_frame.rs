@@ -316,14 +316,120 @@ impl fmt::Display for Id3v2Frame {
                         for (i, sub_frame) in chapter_frame.sub_frames.iter().enumerate() {
                             writeln!(f)?;
                             write!(f, "      [{}] {} - {}", i + 1, sub_frame.id, get_frame_description(&sub_frame.id))?;
-                            if let Some(text) = sub_frame.get_text() {
-                                if !text.is_empty() {
-                                    let display_text = if text.len() > 60 {
-                                        format!("{}...", text.chars().take(60).collect::<String>())
-                                    } else {
-                                        text.to_string()
-                                    };
-                                    write!(f, " (\"{}\")", display_text)?;
+
+                            // Show rich details for embedded frames
+                            if let Some(content) = &sub_frame.content {
+                                match content {
+                                    | Id3v2FrameContent::Text(text_frame) => {
+                                        writeln!(f)?;
+                                        write!(f, "          Encoding: {}", text_frame.encoding)?;
+                                        if !text_frame.text.is_empty() {
+                                            writeln!(f)?;
+                                            let display_text = if text_frame.text.len() > 60 {
+                                                format!("{}...", text_frame.text.chars().take(60).collect::<String>())
+                                            } else {
+                                                text_frame.text.clone()
+                                            };
+                                            write!(f, "          Value: \"{}\"", display_text)?;
+                                        }
+                                    }
+                                    | Id3v2FrameContent::UserText(user_text_frame) => {
+                                        writeln!(f)?;
+                                        write!(f, "          Encoding: {}", user_text_frame.encoding)?;
+                                        writeln!(f)?;
+                                        write!(f, "          Description: \"{}\"", user_text_frame.description)?;
+                                        writeln!(f)?;
+                                        let display_text = if user_text_frame.value.len() > 60 {
+                                            format!("{}...", user_text_frame.value.chars().take(60).collect::<String>())
+                                        } else {
+                                            user_text_frame.value.clone()
+                                        };
+                                        write!(f, "          Value: \"{}\"", display_text)?;
+                                    }
+                                    | Id3v2FrameContent::Url(url_frame) => {
+                                        writeln!(f)?;
+                                        write!(f, "          URL: \"{}\"", url_frame.url)?;
+                                    }
+                                    | Id3v2FrameContent::UserUrl(user_url_frame) => {
+                                        writeln!(f)?;
+                                        write!(f, "          Encoding: {}", user_url_frame.encoding)?;
+                                        writeln!(f)?;
+                                        write!(f, "          Description: \"{}\"", user_url_frame.description)?;
+                                        writeln!(f)?;
+                                        write!(f, "          URL: \"{}\"", user_url_frame.url)?;
+                                    }
+                                    | Id3v2FrameContent::Comment(comment_frame) => {
+                                        writeln!(f)?;
+                                        write!(f, "          Encoding: {}", comment_frame.encoding)?;
+                                        writeln!(f)?;
+                                        write!(f, "          Language: \"{}\"", comment_frame.language)?;
+                                        if !comment_frame.description.is_empty() {
+                                            writeln!(f)?;
+                                            write!(f, "          Description: \"{}\"", comment_frame.description)?;
+                                        }
+                                        writeln!(f)?;
+                                        let display_text = if comment_frame.text.len() > 60 {
+                                            format!("{}...", comment_frame.text.chars().take(60).collect::<String>())
+                                        } else {
+                                            comment_frame.text.clone()
+                                        };
+                                        write!(f, "          Text: \"{}\"", display_text)?;
+                                    }
+                                    | Id3v2FrameContent::Picture(picture_frame) => {
+                                        writeln!(f)?;
+                                        write!(f, "          MIME type: {}", picture_frame.mime_type)?;
+                                        writeln!(f)?;
+                                        write!(f, "          Picture type: {} ({})", picture_frame.picture_type, picture_frame.picture_type_description())?;
+                                        if !picture_frame.description.is_empty() {
+                                            writeln!(f)?;
+                                            write!(f, "          Description: \"{}\"", picture_frame.description)?;
+                                        }
+                                        writeln!(f)?;
+                                        write!(f, "          Data size: {} bytes", picture_frame.picture_data.len())?;
+                                    }
+                                    | Id3v2FrameContent::UniqueFileId(ufid_frame) => {
+                                        writeln!(f)?;
+                                        write!(f, "          Owner: \"{}\"", ufid_frame.owner_identifier)?;
+                                        writeln!(f)?;
+                                        write!(f, "          Identifier: {} bytes", ufid_frame.identifier.len())?;
+                                    }
+                                    | Id3v2FrameContent::Binary(_) => {
+                                        writeln!(f)?;
+                                        write!(f, "          Binary data: {} bytes", sub_frame.size)?;
+                                    }
+                                    | _ => {
+                                        // For other frame types, show basic text/URL if available
+                                        if let Some(text) = sub_frame.get_text() {
+                                            if !text.is_empty() {
+                                                writeln!(f)?;
+                                                let display_text = if text.len() > 60 {
+                                                    format!("{}...", text.chars().take(60).collect::<String>())
+                                                } else {
+                                                    text.to_string()
+                                                };
+                                                write!(f, "          Text: \"{}\"", display_text)?;
+                                            }
+                                        } else if let Some(url) = sub_frame.get_url() {
+                                            writeln!(f)?;
+                                            write!(f, "          URL: \"{}\"", url)?;
+                                        }
+                                    }
+                                }
+                            } else {
+                                // Fallback for unparsed frames
+                                if let Some(text) = sub_frame.get_text() {
+                                    if !text.is_empty() {
+                                        writeln!(f)?;
+                                        let display_text = if text.len() > 60 {
+                                            format!("{}...", text.chars().take(60).collect::<String>())
+                                        } else {
+                                            text.to_string()
+                                        };
+                                        write!(f, "          Text: \"{}\"", display_text)?;
+                                    }
+                                } else if let Some(url) = sub_frame.get_url() {
+                                    writeln!(f)?;
+                                    write!(f, "          URL: \"{}\"", url)?;
                                 }
                             }
                         }
@@ -346,14 +452,120 @@ impl fmt::Display for Id3v2Frame {
                         for (i, sub_frame) in toc_frame.sub_frames.iter().enumerate() {
                             writeln!(f)?;
                             write!(f, "      [{}] {} - {}", i + 1, sub_frame.id, get_frame_description(&sub_frame.id))?;
-                            if let Some(text) = sub_frame.get_text() {
-                                if !text.is_empty() {
-                                    let display_text = if text.len() > 60 {
-                                        format!("{}...", text.chars().take(60).collect::<String>())
-                                    } else {
-                                        text.to_string()
-                                    };
-                                    write!(f, " (\"{}\")", display_text)?;
+
+                            // Show rich details for embedded frames (same logic as CHAP frames)
+                            if let Some(content) = &sub_frame.content {
+                                match content {
+                                    | Id3v2FrameContent::Text(text_frame) => {
+                                        writeln!(f)?;
+                                        write!(f, "          Encoding: {}", text_frame.encoding)?;
+                                        if !text_frame.text.is_empty() {
+                                            writeln!(f)?;
+                                            let display_text = if text_frame.text.len() > 60 {
+                                                format!("{}...", text_frame.text.chars().take(60).collect::<String>())
+                                            } else {
+                                                text_frame.text.clone()
+                                            };
+                                            write!(f, "          Value: \"{}\"", display_text)?;
+                                        }
+                                    }
+                                    | Id3v2FrameContent::UserText(user_text_frame) => {
+                                        writeln!(f)?;
+                                        write!(f, "          Encoding: {}", user_text_frame.encoding)?;
+                                        writeln!(f)?;
+                                        write!(f, "          Description: \"{}\"", user_text_frame.description)?;
+                                        writeln!(f)?;
+                                        let display_text = if user_text_frame.value.len() > 60 {
+                                            format!("{}...", user_text_frame.value.chars().take(60).collect::<String>())
+                                        } else {
+                                            user_text_frame.value.clone()
+                                        };
+                                        write!(f, "          Value: \"{}\"", display_text)?;
+                                    }
+                                    | Id3v2FrameContent::Url(url_frame) => {
+                                        writeln!(f)?;
+                                        write!(f, "          URL: \"{}\"", url_frame.url)?;
+                                    }
+                                    | Id3v2FrameContent::UserUrl(user_url_frame) => {
+                                        writeln!(f)?;
+                                        write!(f, "          Encoding: {}", user_url_frame.encoding)?;
+                                        writeln!(f)?;
+                                        write!(f, "          Description: \"{}\"", user_url_frame.description)?;
+                                        writeln!(f)?;
+                                        write!(f, "          URL: \"{}\"", user_url_frame.url)?;
+                                    }
+                                    | Id3v2FrameContent::Comment(comment_frame) => {
+                                        writeln!(f)?;
+                                        write!(f, "          Encoding: {}", comment_frame.encoding)?;
+                                        writeln!(f)?;
+                                        write!(f, "          Language: \"{}\"", comment_frame.language)?;
+                                        if !comment_frame.description.is_empty() {
+                                            writeln!(f)?;
+                                            write!(f, "          Description: \"{}\"", comment_frame.description)?;
+                                        }
+                                        writeln!(f)?;
+                                        let display_text = if comment_frame.text.len() > 60 {
+                                            format!("{}...", comment_frame.text.chars().take(60).collect::<String>())
+                                        } else {
+                                            comment_frame.text.clone()
+                                        };
+                                        write!(f, "          Text: \"{}\"", display_text)?;
+                                    }
+                                    | Id3v2FrameContent::Picture(picture_frame) => {
+                                        writeln!(f)?;
+                                        write!(f, "          MIME type: {}", picture_frame.mime_type)?;
+                                        writeln!(f)?;
+                                        write!(f, "          Picture type: {} ({})", picture_frame.picture_type, picture_frame.picture_type_description())?;
+                                        if !picture_frame.description.is_empty() {
+                                            writeln!(f)?;
+                                            write!(f, "          Description: \"{}\"", picture_frame.description)?;
+                                        }
+                                        writeln!(f)?;
+                                        write!(f, "          Data size: {} bytes", picture_frame.picture_data.len())?;
+                                    }
+                                    | Id3v2FrameContent::UniqueFileId(ufid_frame) => {
+                                        writeln!(f)?;
+                                        write!(f, "          Owner: \"{}\"", ufid_frame.owner_identifier)?;
+                                        writeln!(f)?;
+                                        write!(f, "          Identifier: {} bytes", ufid_frame.identifier.len())?;
+                                    }
+                                    | Id3v2FrameContent::Binary(_) => {
+                                        writeln!(f)?;
+                                        write!(f, "          Binary data: {} bytes", sub_frame.size)?;
+                                    }
+                                    | _ => {
+                                        // For other frame types, show basic text/URL if available
+                                        if let Some(text) = sub_frame.get_text() {
+                                            if !text.is_empty() {
+                                                writeln!(f)?;
+                                                let display_text = if text.len() > 60 {
+                                                    format!("{}...", text.chars().take(60).collect::<String>())
+                                                } else {
+                                                    text.to_string()
+                                                };
+                                                write!(f, "          Text: \"{}\"", display_text)?;
+                                            }
+                                        } else if let Some(url) = sub_frame.get_url() {
+                                            writeln!(f)?;
+                                            write!(f, "          URL: \"{}\"", url)?;
+                                        }
+                                    }
+                                }
+                            } else {
+                                // Fallback for unparsed frames
+                                if let Some(text) = sub_frame.get_text() {
+                                    if !text.is_empty() {
+                                        writeln!(f)?;
+                                        let display_text = if text.len() > 60 {
+                                            format!("{}...", text.chars().take(60).collect::<String>())
+                                        } else {
+                                            text.to_string()
+                                        };
+                                        write!(f, "          Text: \"{}\"", display_text)?;
+                                    }
+                                } else if let Some(url) = sub_frame.get_url() {
+                                    writeln!(f)?;
+                                    write!(f, "          URL: \"{}\"", url)?;
                                 }
                             }
                         }
