@@ -43,7 +43,7 @@ pub enum Id3v2FrameContent {
     /// Table of contents frame (CTOC)
     TableOfContents(TableOfContentsFrame),
     /// Raw binary data for unsupported/unknown frames
-    Binary(Vec<u8>),
+    Binary,
 }
 
 /// ID3v2 frame representation for all versions
@@ -69,27 +69,12 @@ impl Id3v2Frame {
         Self { id, size, flags, data, content: None, embedded_frames: None }
     }
 
-    /// Create a new ID3v2 frame with parsed content
-    pub fn new_with_content(id: String, size: u32, flags: u16, data: Vec<u8>, content: Id3v2FrameContent) -> Self {
-        Self { id, size, flags, data, content: Some(content), embedded_frames: None }
-    }
-
-    /// Create a new ID3v2 frame with embedded sub-frames (for CHAP/CTOC frames)
-    pub fn new_with_embedded(id: String, size: u32, flags: u16, data: Vec<u8>, embedded_frames: Vec<Id3v2Frame>) -> Self {
-        Self { id, size, flags, data, content: None, embedded_frames: Some(embedded_frames) }
-    }
-
-    /// Create a new ID3v2 frame with both content and embedded frames
-    pub fn new_complete(id: String, size: u32, flags: u16, data: Vec<u8>, content: Option<Id3v2FrameContent>, embedded_frames: Option<Vec<Id3v2Frame>>) -> Self {
-        Self { id, size, flags, data, content, embedded_frames }
-    }
-
     /// Parse frame content based on frame ID
     pub fn parse_content(&mut self, version_major: u8) -> Result<(), String> {
         // Validate that this frame is valid for the given ID3v2 version
         if !crate::id3v2_tools::is_valid_frame_for_version(&self.id, version_major) {
             // Invalid frame for this version, store as binary data
-            self.content = Some(Id3v2FrameContent::Binary(self.data.clone()));
+            self.content = Some(Id3v2FrameContent::Binary);
             return Ok(());
         }
 
@@ -146,56 +131,11 @@ impl Id3v2Frame {
             | "CHAP" => Id3v2FrameContent::Chapter(ChapterFrame::parse(&self.data, version_major)?),
             | "CTOC" => Id3v2FrameContent::TableOfContents(TableOfContentsFrame::parse(&self.data, version_major)?),
             // Other frames remain as binary data
-            | _ => Id3v2FrameContent::Binary(self.data.clone()),
+            | _ => Id3v2FrameContent::Binary,
         };
 
         self.content = Some(content);
         Ok(())
-    }
-
-    /// Get the frame ID as a printable string
-    pub fn id(&self) -> &str {
-        &self.id
-    }
-
-    /// Get the frame data size
-    pub fn size(&self) -> u32 {
-        self.size
-    }
-
-    /// Get the frame flags
-    pub fn flags(&self) -> u16 {
-        self.flags
-    }
-
-    /// Get the frame data
-    pub fn data(&self) -> &[u8] {
-        &self.data
-    }
-
-    /// Check if the frame ID is valid (printable ASCII alphanumeric)
-    pub fn is_valid_id(&self) -> bool {
-        self.id.len() == 4 && self.id.chars().all(|c| c.is_ascii_alphanumeric())
-    }
-
-    /// Get the total frame size including header (10 bytes for header + data size)
-    pub fn total_size(&self) -> u32 {
-        10 + self.size
-    }
-
-    /// Check if this frame type supports embedded sub-frames
-    pub fn supports_embedded_frames(&self) -> bool {
-        matches!(self.id.as_str(), "CHAP" | "CTOC")
-    }
-
-    /// Get embedded sub-frames (if any)
-    pub fn embedded_frames(&self) -> Option<&Vec<Id3v2Frame>> {
-        self.embedded_frames.as_ref()
-    }
-
-    /// Check if this frame has embedded sub-frames
-    pub fn has_embedded_frames(&self) -> bool {
-        self.embedded_frames.is_some() && !self.embedded_frames.as_ref().unwrap().is_empty()
     }
 
     /// Get text content if this is a text frame
@@ -215,11 +155,6 @@ impl Id3v2Frame {
             | Some(Id3v2FrameContent::UserUrl(user_url_frame)) => Some(&user_url_frame.url),
             | _ => None,
         }
-    }
-
-    /// Check if frame content was successfully parsed
-    pub fn is_parsed(&self) -> bool {
-        self.content.is_some()
     }
 }
 
@@ -424,7 +359,7 @@ impl fmt::Display for Id3v2Frame {
                                         writeln!(f)?;
                                         write!(f, "          Identifier: {} bytes", ufid_frame.identifier.len())?;
                                     }
-                                    | Id3v2FrameContent::Binary(_) => {
+                                    | Id3v2FrameContent::Binary => {
                                         writeln!(f)?;
                                         write!(f, "          Binary data: {} bytes", sub_frame.size)?;
                                     }
@@ -571,7 +506,7 @@ impl fmt::Display for Id3v2Frame {
                                         writeln!(f)?;
                                         write!(f, "          Identifier: {} bytes", ufid_frame.identifier.len())?;
                                     }
-                                    | Id3v2FrameContent::Binary(_) => {
+                                    | Id3v2FrameContent::Binary => {
                                         writeln!(f)?;
                                         write!(f, "          Binary data: {} bytes", sub_frame.size)?;
                                     }

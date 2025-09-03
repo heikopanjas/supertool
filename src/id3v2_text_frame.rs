@@ -34,9 +34,4 @@ impl TextFrame {
     pub fn primary_text(&self) -> &str {
         &self.text
     }
-
-    /// Get all text strings
-    pub fn all_strings(&self) -> &[String] {
-        &self.strings
-    }
 }
