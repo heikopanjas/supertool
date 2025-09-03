@@ -30,13 +30,11 @@ pub fn dissect_id3v2(file: &mut File) -> Result<(), Box<dyn std::error::Error>> 
 
         // Calculate tag size (synchsafe integer)
         let size = ((id3_header[6] as u32) << 21) | ((id3_header[7] as u32) << 14) | ((id3_header[8] as u32) << 7) | (id3_header[9] as u32);
-        
+
         // Add diagnostic for size bytes and calculation
         stdout.set_color(ColorSpec::new().set_fg(Some(Color::Cyan)))?;
-        writeln!(&mut stdout, "  Size bytes: [0x{:02X}, 0x{:02X}, 0x{:02X}, 0x{:02X}]", 
-            id3_header[6], id3_header[7], id3_header[8], id3_header[9])?;
-        writeln!(&mut stdout, "  Size calculation: ({} << 21) | ({} << 14) | ({} << 7) | {} = {}", 
-            id3_header[6], id3_header[7], id3_header[8], id3_header[9], size)?;
+        writeln!(&mut stdout, "  Size bytes: [0x{:02X}, 0x{:02X}, 0x{:02X}, 0x{:02X}]", id3_header[6], id3_header[7], id3_header[8], id3_header[9])?;
+        writeln!(&mut stdout, "  Size calculation: ({} << 21) | ({} << 14) | ({} << 7) | {} = {}", id3_header[6], id3_header[7], id3_header[8], id3_header[9], size)?;
         stdout.reset()?;
 
         // Validate synchsafe format (each byte should have MSB = 0)
@@ -74,14 +72,14 @@ pub fn dissect_id3v2(file: &mut File) -> Result<(), Box<dyn std::error::Error>> 
         }
 
         writeln!(&mut stdout, "  Tag Size: {} bytes", size)?;
-        
+
         // Add size validation warnings
         if size > 1_000_000 {
             stdout.set_color(ColorSpec::new().set_fg(Some(Color::Yellow)).set_bold(true))?;
             writeln!(&mut stdout, "  WARNING: Tag size is unusually large (> 1MB)")?;
             stdout.reset()?;
         }
-        
+
         if synchsafe_violation {
             stdout.set_color(ColorSpec::new().set_fg(Some(Color::Red)).set_bold(true))?;
             writeln!(&mut stdout, "  ERROR: Invalid synchsafe format detected in size field")?;

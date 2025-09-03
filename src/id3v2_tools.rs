@@ -142,7 +142,7 @@ pub fn detect_mpeg_sync(header: &[u8]) -> bool {
 pub fn read_id3v2_header(file: &mut File) -> Result<Option<Id3v2Header>, Box<dyn std::error::Error>> {
     use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
     use std::io::Write;
-    
+
     // Seek to beginning and read ID3v2 header
     file.seek(SeekFrom::Start(0))?;
     let mut id3_header = [0u8; 10];
@@ -167,12 +167,12 @@ pub fn read_id3v2_header(file: &mut File) -> Result<Option<Id3v2Header>, Box<dyn
 
     // Calculate tag size (synchsafe integer)
     let size = decode_synchsafe_int(&id3_header[6..10]);
-    
+
     // Add diagnostic for size bytes and calculation
     stdout.set_color(ColorSpec::new().set_fg(Some(Color::Cyan)))?;
-    writeln!(&mut stdout, "  Size bytes: [0x{:02X}, 0x{:02X}, 0x{:02X}, 0x{:02X}]", 
+    writeln!(&mut stdout, "  Size bytes: [0x{:02X}, 0x{:02X}, 0x{:02X}, 0x{:02X}]",
         id3_header[6], id3_header[7], id3_header[8], id3_header[9])?;
-    writeln!(&mut stdout, "  Size calculation: ({} << 21) | ({} << 14) | ({} << 7) | {} = {}", 
+    writeln!(&mut stdout, "  Size calculation: ({} << 21) | ({} << 14) | ({} << 7) | {} = {}",
         id3_header[6] & 0x7F, id3_header[7] & 0x7F, id3_header[8] & 0x7F, id3_header[9] & 0x7F, size)?;
     stdout.reset()?;
 
@@ -186,7 +186,7 @@ pub fn read_id3v2_header(file: &mut File) -> Result<Option<Id3v2Header>, Box<dyn
             synchsafe_violation = true;
         }
     }
-    
+
     if synchsafe_violation {
         stdout.set_color(ColorSpec::new().set_fg(Some(Color::Red)).set_bold(true))?;
         writeln!(&mut stdout, "  ERROR: Invalid synchsafe format detected in size field")?;
