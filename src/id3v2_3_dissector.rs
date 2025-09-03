@@ -1,3 +1,4 @@
+use crate::id3v2_frame::Id3v2Frame;
 use crate::id3v2_tools::*;
 use crate::media_dissector::MediaDissector;
 use std::fs::File;
@@ -6,6 +7,54 @@ use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 /// ID3v2.3 dissector for MP3 files
 pub struct Id3v23Dissector;
+
+/// Valid frame IDs for ID3v2.3 according to the specification
+const VALID_ID3V2_3_FRAME_IDS: &[&str] = &[
+    // Text information frames
+    "TALB", "TBPM", "TCOM", "TCON", "TCOP", "TDAT", "TDLY", "TENC", "TEXT", "TFLT", "TIME", "TIT1", "TIT2", "TIT3", "TKEY", "TLAN", "TLEN", "TMED", "TOAL", "TOFN",
+    "TOLY", "TOPE", "TORY", "TOWN", "TPE1", "TPE2", "TPE3", "TPE4", "TPOS", "TPUB", "TRCK", "TRDA", "TRSN", "TRSO", "TSIZ", "TSRC", "TSSE", "TYER", "TXXX",
+    // URL link frames
+    "WCOM", "WCOP", "WOAF", "WOAR", "WOAS", "WORS", "WPAY", "WPUB", "WXXX", // Other frames
+    "UFID", "MCDI", "ETCO", "MLLT", "SYTC", "USLT", "SYLT", "COMM", "RVAD", "EQUA", "RVRB", "PCNT", "POPM", "RBUF", "AENC", "LINK", "POSS", "USER", "OWNE", "COMR",
+    "ENCR", "GRID", "PRIV", "GEOB", "IPLS", "APIC", // Chapter frames (ID3v2 Chapter Frame Addendum)
+    "CHAP", "CTOC",
+];
+
+/// Parse an ID3v2.3 frame from raw buffer data
+pub fn parse_id3v2_3_frame(buffer: &[u8], pos: usize) -> Option<Id3v2Frame> {
+    if pos + 10 > buffer.len() {
+        return None;
+    }
+
+    let frame_id = String::from_utf8_lossy(&buffer[pos..pos + 4]).to_string();
+
+    // Stop if we hit padding (null bytes)
+    if frame_id.starts_with('\0') || !frame_id.chars().all(|c| c.is_ascii_alphanumeric()) {
+        return None;
+    }
+
+    // Check if this is a valid ID3v2.3 frame ID
+    if !VALID_ID3V2_3_FRAME_IDS.contains(&frame_id.as_str()) {
+        return None;
+    }
+
+    // ID3v2.3 uses regular big-endian integers (not synchsafe)
+    let frame_size = u32::from_be_bytes([buffer[pos + 4], buffer[pos + 5], buffer[pos + 6], buffer[pos + 7]]);
+    let frame_flags = u16::from_be_bytes([buffer[pos + 8], buffer[pos + 9]]);
+
+    if frame_size == 0 || frame_size > (buffer.len() - pos - 10) as u32 {
+        return None;
+    }
+
+    let data = buffer[pos + 10..pos + 10 + frame_size as usize].to_vec();
+
+    let mut frame = Id3v2Frame::new(frame_id, frame_size, frame_flags, data);
+
+    // Parse the frame content using the new typed system (ID3v2.3)
+    let _ = frame.parse_content(3); // Ignore parsing errors, keep raw data
+
+    Some(frame)
+}
 
 impl MediaDissector for Id3v23Dissector {
     fn media_type(&self) -> &'static str {
@@ -130,18 +179,20 @@ pub fn dissect_id3v2_3(file: &mut File, tag_size: u32, flags: u8) -> Result<(), 
             let frame_flags = u16::from_be_bytes([buffer[pos + 8], buffer[pos + 9]]);
 
             if frame_size > 0 && frame_size < (buffer.len() - pos - 10) as u32 {
-                stdout.set_color(ColorSpec::new().set_fg(Some(Color::Green)))?;
-                write!(&mut stdout, "  Frame: {}", frame_id)?;
-                stdout.reset()?;
-                write!(&mut stdout, " (size: {} bytes", frame_size)?;
+                // Parse the frame using the new typed system
+                if let Some(frame) = parse_id3v2_3_frame(&buffer, pos) {
+                    stdout.set_color(ColorSpec::new().set_fg(Some(Color::Green)))?;
+                    write!(&mut stdout, "  {}", frame)?;
+                    stdout.reset()?;
+                } else {
+                    stdout.set_color(ColorSpec::new().set_fg(Some(Color::Green)))?;
+                    write!(&mut stdout, "  Frame: {}", frame_id)?;
+                    stdout.reset()?;
+                    write!(&mut stdout, " (size: {} bytes", frame_size)?;
 
-                // Interpret frame flags for ID3v2.3
-                interpret_id3v2_3_frame_flags(frame_flags)?;
-                writeln!(&mut stdout, ")")?;
-
-                // Parse common frame content preview
-                if frame_size > 1 && pos + 10 + frame_size as usize <= buffer.len() {
-                    parse_frame_content_preview(&buffer[pos + 10..pos + 10 + frame_size as usize], frame_id)?;
+                    // Interpret frame flags for ID3v2.3
+                    interpret_id3v2_3_frame_flags(frame_flags)?;
+                    writeln!(&mut stdout, ")")?;
                 }
 
                 pos += 10 + frame_size as usize;

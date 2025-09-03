@@ -25,6 +25,17 @@ This is a Rust project called "supertool" - a versatile media file analysis tool
   - `src/id3v2_dissector.rs` - Main ID3v2 header parsing and version dispatch
   - `src/id3v2_3_dissector.rs` - Specialized ID3v2.3 frame dissection
   - `src/id3v2_4_dissector.rs` - Specialized ID3v2.4 frame dissection
+  - `src/id3v2_frame.rs` - ID3v2 frame data structure and parsing utilities
+  - `src/id3v2_text_encoding.rs` - Text encoding types and decoding utilities for ID3v2 frames
+  - `src/id3v2_text_frame.rs` - Text Information Frame (T*** frames except TXXX)
+  - `src/id3v2_url_frame.rs` - URL Link Frame (W*** frames except WXXX)
+  - `src/id3v2_user_text_frame.rs` - User-Defined Text Information Frame (TXXX)
+  - `src/id3v2_user_url_frame.rs` - User-Defined URL Link Frame (WXXX)
+  - `src/id3v2_comment_frame.rs` - Comment Frame (COMM, USLT)
+  - `src/id3v2_attached_picture_frame.rs` - Attached Picture Frame (APIC)
+  - `src/id3v2_unique_file_id_frame.rs` - Unique File Identifier Frame (UFID)
+  - `src/id3v2_chapter_frame.rs` - Chapter Frame (CHAP) from ID3v2 Chapter Frame Addendum
+  - `src/id3v2_table_of_contents_frame.rs` - Table of Contents Frame (CTOC) from ID3v2 Chapter Frame Addendum
   - `src/id3v2_tools.rs` - Utility functions for ID3v2 processing (synchsafe integers, unsynchronization, frame flags)
   - `src/isobmff_dissector.rs` - ISO Base Media File Format box parsing for MP4 files
 - Use Cargo for dependency management and builds
@@ -94,3 +105,15 @@ This is a Rust project called "supertool" - a versatile media file analysis tool
 - **Reasoning**: Each dissector now owns its complete implementation including format detection logic, making the codebase more modular and maintainable. Common ID3v2 functionality remains in id3v2_tools.rs for shared use.
 - **Modular restructuring completed**: Implemented "one struct/trait per file" organization principle
 - **Reasoning**: Split original `dissector.rs` into separate files: `media_dissector.rs` (trait), `dissector_builder.rs` (builder struct), `unknown_dissector.rs` (fallback struct), and `cli.rs` (CLI structures). This follows Rust best practices for maintainable, focused modules with single responsibilities, making the codebase easier to navigate and modify.
+- **ID3v2 frame structure implementation**: Created `Id3v2Frame` struct for standardized frame representation
+- **Reasoning**: Added dedicated data structure in `id3v2_frame.rs` to encapsulate frame header data (ID, size, flags) and content with version-specific parsing methods. Includes comprehensive frame type descriptions and flag interpretation for both ID3v2.3 and ID3v2.4, providing a clean API for frame manipulation and analysis.
+- **Frame struct redesigned for version independence**: Removed version dependency from `Id3v2Frame` struct and moved parsing logic to respective dissectors
+- **Reasoning**: Frame structs should be version-agnostic data containers. Moved `parse_id3v2_3_frame()` and `parse_id3v2_4_frame()` functions to their respective dissector modules along with comprehensive lists of valid frame IDs per specification. This separation of concerns makes the frame struct reusable across versions while keeping version-specific logic properly isolated in dissector modules.
+- **Frame description centralized**: Moved frame description functionality from `Id3v2Frame` to `id3v2_tools.rs` as unified function
+- **Reasoning**: Frame descriptions should be unified across ID3v2 versions rather than duplicated in the frame struct. Added `get_frame_description()` function in `id3v2_tools.rs` that provides human-readable descriptions for all frame types from both ID3v2.3 and ID3v2.4 specifications, creating a single source of truth for frame information.
+- **ID3v2 chapter support implementation**: Added comprehensive support for CHAP and CTOC frames from ID3v2 Chapter Frame Addendum
+- **Reasoning**: CHAP (Chapter) and CTOC (Table of Contents) frames were missing from the implementation, which prevented proper dissection of audio files with chapter information. Added frame IDs to both ID3v2.3 and ID3v2.4 dissectors, enhanced `Id3v2Frame` struct with `embedded_frames` field to support nested sub-frames in CHAP frames, and implemented parsing functions `parse_chap_frame()` and `parse_ctoc_frame()` that correctly handle the complex structure including element IDs, timing information, flags, child elements, and embedded sub-frames as specified in the ID3v2 Chapter Frame Addendum specification.
+- **Frame types modularization**: Split `id3v2_frame_types.rs` into individual files following "one struct/trait per file" principle
+- **Reasoning**: Separated large consolidated frame types file into focused modules: `id3v2_text_encoding.rs` (common text encoding utilities), `id3v2_text_frame.rs`, `id3v2_url_frame.rs`, `id3v2_user_text_frame.rs`, `id3v2_user_url_frame.rs`, `id3v2_comment_frame.rs`, `id3v2_attached_picture_frame.rs`, and `id3v2_unique_file_id_frame.rs`. This improves code maintainability, follows Rust best practices for module organization, and makes the codebase easier to navigate and modify. Each frame type now has its own dedicated file with clear responsibilities, while common text encoding functionality is shared through the `id3v2_text_encoding` module.
+- **CHAP and CTOC frame types added**: Implemented dedicated modules for Chapter (CHAP) and Table of Contents (CTOC) frames
+- **Reasoning**: Added complete support for ID3v2 Chapter Frame Addendum specification with `id3v2_chapter_frame.rs` and `id3v2_table_of_contents_frame.rs` modules. These frame types are essential for audio files with chapter information (podcasts, audiobooks, etc.). CHAP frames contain element ID, timing information, byte offsets, and embedded sub-frames. CTOC frames contain element ID, flags, child element lists, and embedded sub-frames. Both frame types include proper embedded frame parsing that handles different ID3v2 versions (synchsafe vs regular integers, different header sizes). Integration includes adding variants to `Id3v2FrameContent` enum and parsing logic in `parse_content()` method.

@@ -1,10 +1,122 @@
 use std::fs::File;
 use std::io::Write;
 use std::io::{Read, Seek, SeekFrom};
-use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
+use termcolor::{ColorChoice, StandardStream};
 
 /// ID3v2 header information: (major_version, minor_version, flags, size)
 pub type Id3v2Header = (u8, u8, u8, u32);
+
+/// Get a human-readable description for an ID3v2 frame ID (unified for v2.3 and v2.4)
+pub fn get_frame_description(frame_id: &str) -> &'static str {
+    match frame_id {
+        | "TIT1" => "Content group description",
+        | "TIT2" => "Title/songname/content description",
+        | "TIT3" => "Subtitle/Description refinement",
+        | "TALB" => "Album/Movie/Show title",
+        | "TOAL" => "Original album/movie/show title",
+        | "TRCK" => "Track number/Position in set",
+        | "TPOS" => "Part of a set",
+        | "TSST" => "Set subtitle",
+        | "TSRC" => "ISRC (international standard recording code)",
+        | "TPE1" => "Lead performer(s)/Soloist(s)",
+        | "TPE2" => "Band/orchestra/accompaniment",
+        | "TPE3" => "Conductor/performer refinement",
+        | "TPE4" => "Interpreted, remixed, or otherwise modified by",
+        | "TOPE" => "Original artist(s)/performer(s)",
+        | "TEXT" => "Lyricist/Text writer",
+        | "TOLY" => "Original lyricist(s)/text writer(s)",
+        | "TCOM" => "Composer",
+        | "TMCL" => "Musician credits list",
+        | "TIPL" => "Involved people list",
+        | "TENC" => "Encoded by",
+        | "TBPM" => "BPM (beats per minute)",
+        | "TLEN" => "Length",
+        | "TKEY" => "Initial key",
+        | "TLAN" => "Language(s)",
+        | "TCON" => "Content type",
+        | "TFLT" => "File type",
+        | "TMED" => "Media type",
+        | "TMOO" => "Mood",
+        | "TCOP" => "Copyright message",
+        | "TPRO" => "Produced notice",
+        | "TPUB" => "Publisher",
+        | "TOWN" => "File owner/licensee",
+        | "TRSN" => "Internet radio station name",
+        | "TRSO" => "Internet radio station owner",
+        | "TOFN" => "Original filename",
+        | "TDLY" => "Playlist delay",
+        | "TDEN" => "Encoding time",
+        | "TDOR" => "Original release time",
+        | "TDRC" => "Recording time",
+        | "TDRL" => "Release time",
+        | "TDTG" => "Tagging time",
+        | "TSSE" => "Software/Hardware and settings used for encoding",
+        | "TSOA" => "Album sort order",
+        | "TSOP" => "Performer sort order",
+        | "TSOT" => "Title sort order",
+        | "TXXX" => "User defined text information frame",
+
+        // ID3v2.3 specific frames
+        | "TDAT" => "Date",
+        | "TIME" => "Time",
+        | "TORY" => "Original release year",
+        | "TRDA" => "Recording dates",
+        | "TSIZ" => "Size",
+        | "TYER" => "Year",
+        | "IPLS" => "Involved people list",
+        | "RVAD" => "Relative volume adjustment",
+        | "EQUA" => "Equalisation",
+
+        // ID3v2.4 specific frames
+        | "RVA2" => "Relative volume adjustment (2)",
+        | "EQU2" => "Equalisation (2)",
+        | "SEEK" => "Seek frame",
+        | "ASPI" => "Audio seek point index",
+        | "SIGN" => "Signature frame",
+
+        // URL frames
+        | "WCOM" => "Commercial information",
+        | "WCOP" => "Copyright/Legal information",
+        | "WOAF" => "Official audio file webpage",
+        | "WOAR" => "Official artist/performer webpage",
+        | "WOAS" => "Official audio source webpage",
+        | "WORS" => "Official internet radio station homepage",
+        | "WPAY" => "Payment",
+        | "WPUB" => "Publishers official webpage",
+        | "WXXX" => "User defined URL link frame",
+
+        // Other frames
+        | "MCDI" => "Music CD identifier",
+        | "ETCO" => "Event timing codes",
+        | "MLLT" => "MPEG location lookup table",
+        | "SYTC" => "Synchronized tempo codes",
+        | "USLT" => "Unsychronized lyric/text transcription",
+        | "SYLT" => "Synchronized lyric/text",
+        | "COMM" => "Comments",
+        | "RVRB" => "Reverb",
+        | "PCNT" => "Play counter",
+        | "POPM" => "Popularimeter",
+        | "RBUF" => "Recommended buffer size",
+        | "AENC" => "Audio encryption",
+        | "LINK" => "Linked information",
+        | "POSS" => "Position synchronisation frame",
+        | "USER" => "Terms of use",
+        | "OWNE" => "Ownership frame",
+        | "COMR" => "Commercial frame",
+        | "ENCR" => "Encryption method registration",
+        | "GRID" => "Group identification registration",
+        | "PRIV" => "Private frame",
+        | "GEOB" => "General encapsulated object",
+        | "UFID" => "Unique file identifier",
+        | "APIC" => "Attached picture",
+
+        // Chapter frames (ID3v2 Chapter Frame Addendum)
+        | "CHAP" => "Chapter frame",
+        | "CTOC" => "Table of contents frame",
+
+        | _ => "Unknown frame type",
+    }
+}
 
 /// Check if the given header indicates an ID3v2 file and return the version
 pub fn detect_id3v2_version(header: &[u8]) -> Option<(u8, u8)> {
@@ -164,83 +276,47 @@ pub fn interpret_id3v2_4_frame_flags(flags: u16) -> Result<(), Box<dyn std::erro
     Ok(())
 }
 
-/// Parse and display a preview of frame content for common text frames
-pub fn parse_frame_content_preview(data: &[u8], frame_id: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let mut stdout = StandardStream::stdout(ColorChoice::Auto);
+/// Parse embedded frames from CHAP or CTOC frame data
+/// Returns (parsed_data_length, embedded_frames)
+pub fn parse_embedded_frames(frame_data: &[u8], start_offset: usize, version_major: u8) -> (usize, Vec<crate::id3v2_frame::Id3v2Frame>) {
+    let mut embedded_frames = Vec::new();
+    let mut pos = start_offset;
 
-    if data.is_empty() {
-        return Ok(());
-    }
+    while pos + 10 <= frame_data.len() {
+        // Try to parse a sub-frame
+        let frame_id = String::from_utf8_lossy(&frame_data[pos..pos + 4]).to_string();
 
-    // Text frames typically start with encoding byte
-    if matches!(frame_id, "TIT2" | "TPE1" | "TALB" | "TYER" | "TCON") {
-        let encoding = data[0];
-        if data.len() > 1 {
-            let text_data = &data[1..];
-            let preview = match encoding {
-                | 0 => {
-                    // ISO-8859-1
-                    let end = text_data.iter().position(|&b| b == 0).unwrap_or(text_data.len());
-                    String::from_utf8_lossy(&text_data[..end.min(50)])
-                }
-                | 1 => {
-                    // UTF-16 with BOM
-                    if text_data.len() >= 2 {
-                        let (text_start, is_le) = if text_data.len() >= 2 {
-                            if text_data[0] == 0xFF && text_data[1] == 0xFE {
-                                (2, true) // Little endian
-                            } else if text_data[0] == 0xFE && text_data[1] == 0xFF {
-                                (2, false) // Big endian
-                            } else {
-                                (0, false) // No BOM, assume big endian
-                            }
-                        } else {
-                            (0, false)
-                        };
-
-                        if text_data.len() > text_start {
-                            // Simple UTF-16 to string conversion for preview
-                            let utf16_data = &text_data[text_start..];
-                            let mut preview = String::new();
-                            let mut i = 0;
-                            while i + 1 < utf16_data.len() && preview.len() < 50 {
-                                let code_point = if is_le {
-                                    u16::from_le_bytes([utf16_data[i], utf16_data[i + 1]])
-                                } else {
-                                    u16::from_be_bytes([utf16_data[i], utf16_data[i + 1]])
-                                };
-
-                                if code_point == 0 {
-                                    break;
-                                }
-                                if code_point < 128 && code_point > 0 {
-                                    preview.push(code_point as u8 as char);
-                                } else {
-                                    preview.push('?'); // Non-ASCII placeholder
-                                }
-                                i += 2;
-                            }
-                            preview.into()
-                        } else {
-                            "".into()
-                        }
-                    } else {
-                        "".into()
-                    }
-                }
-                | 3 => {
-                    // UTF-8
-                    let end = text_data.iter().position(|&b| b == 0).unwrap_or(text_data.len());
-                    String::from_utf8_lossy(&text_data[..end.min(50)])
-                }
-                | _ => format!("Unknown encoding: {}", encoding).into(),
-            };
-
-            stdout.set_color(ColorSpec::new().set_fg(Some(Color::Blue)))?;
-            writeln!(&mut stdout, "    Content: \"{}\"", preview.trim())?;
-            stdout.reset()?;
+        // Check if we've reached padding or end of data
+        if frame_id.starts_with('\0') || !frame_id.chars().all(|c| c.is_ascii_alphanumeric()) {
+            break;
         }
+
+        // Parse frame size based on ID3v2 version
+        let frame_size = if version_major == 4 {
+            // ID3v2.4 uses synchsafe integers
+            decode_synchsafe_int(&frame_data[pos + 4..pos + 8])
+        } else {
+            // ID3v2.3 uses big-endian integers
+            u32::from_be_bytes([frame_data[pos + 4], frame_data[pos + 5], frame_data[pos + 6], frame_data[pos + 7]])
+        };
+
+        let frame_flags = u16::from_be_bytes([frame_data[pos + 8], frame_data[pos + 9]]);
+
+        // Ensure we have enough data for the complete frame
+        if pos + 10 + frame_size as usize > frame_data.len() {
+            break;
+        }
+
+        // Extract frame data
+        let data = frame_data[pos + 10..pos + 10 + frame_size as usize].to_vec();
+
+        // Create the embedded frame
+        let embedded_frame = crate::id3v2_frame::Id3v2Frame::new(frame_id, frame_size, frame_flags, data);
+        embedded_frames.push(embedded_frame);
+
+        // Move to next frame
+        pos += 10 + frame_size as usize;
     }
 
-    Ok(())
+    (pos - start_offset, embedded_frames)
 }
