@@ -146,12 +146,12 @@ pub fn dissect_id3v2_4(file: &mut File, tag_size: u32, flags: u8) -> Result<(), 
 
     let mut buffer = vec![0u8; tag_size as usize];
     match file.read_exact(&mut buffer) {
-        Ok(_) => {
+        | Ok(_) => {
             stdout.set_color(ColorSpec::new().set_fg(Some(Color::Green)))?;
             writeln!(&mut stdout, "Successfully read {} bytes of tag data", tag_size)?;
             stdout.reset()?;
         }
-        Err(e) => {
+        | Err(e) => {
             stdout.set_color(ColorSpec::new().set_fg(Some(Color::Red)).set_bold(true))?;
             writeln!(&mut stdout, "ERROR: Failed to read tag data: {}", e)?;
             stdout.reset()?;
@@ -241,8 +241,15 @@ pub fn dissect_id3v2_4(file: &mut File, tag_size: u32, flags: u8) -> Result<(), 
 
             // Diagnostic for frame size
             stdout.set_color(ColorSpec::new().set_fg(Some(Color::Cyan)))?;
-            writeln!(&mut stdout, "    Size bytes: [{:02X}, {:02X}, {:02X}, {:02X}] = {} bytes (synchsafe)",
-                buffer[pos + 4], buffer[pos + 5], buffer[pos + 6], buffer[pos + 7], frame_size)?;
+            writeln!(
+                &mut stdout,
+                "    Size bytes: [{:02X}, {:02X}, {:02X}, {:02X}] = {} bytes (synchsafe)",
+                buffer[pos + 4],
+                buffer[pos + 5],
+                buffer[pos + 6],
+                buffer[pos + 7],
+                frame_size
+            )?;
             writeln!(&mut stdout, "    Flags: 0x{:04X}", frame_flags)?;
             stdout.reset()?;
 
@@ -269,13 +276,13 @@ pub fn dissect_id3v2_4(file: &mut File, tag_size: u32, flags: u8) -> Result<(), 
 
                 // Parse the frame using the new typed system
                 match parse_id3v2_4_frame(&buffer, pos) {
-                    Some(frame) => {
+                    | Some(frame) => {
                         frame_count += 1;
                         stdout.set_color(ColorSpec::new().set_fg(Some(Color::Green)))?;
                         write!(&mut stdout, "  {}", frame)?;
                         stdout.reset()?;
                     }
-                    None => {
+                    | None => {
                         parsing_errors += 1;
                         stdout.set_color(ColorSpec::new().set_fg(Some(Color::Yellow)))?;
                         writeln!(&mut stdout, "    WARNING: Failed to parse frame, showing raw info")?;
@@ -300,8 +307,7 @@ pub fn dissect_id3v2_4(file: &mut File, tag_size: u32, flags: u8) -> Result<(), 
                 pos += 10; // Skip frame header
             } else {
                 stdout.set_color(ColorSpec::new().set_fg(Some(Color::Red)).set_bold(true))?;
-                writeln!(&mut stdout, "    ERROR: Frame size {} exceeds remaining buffer ({} bytes)",
-                    frame_size, buffer.len() - pos - 10)?;
+                writeln!(&mut stdout, "    ERROR: Frame size {} exceeds remaining buffer ({} bytes)", frame_size, buffer.len() - pos - 10)?;
                 stdout.reset()?;
                 parsing_errors += 1;
                 break;
@@ -331,8 +337,7 @@ pub fn dissect_id3v2_4(file: &mut File, tag_size: u32, flags: u8) -> Result<(), 
     }
     if image_count > 0 {
         stdout.set_color(ColorSpec::new().set_fg(Some(Color::Cyan)))?;
-        writeln!(&mut stdout, "  Image frames (APIC): {} ({:.1} MB total)",
-            image_count, total_image_bytes as f64 / 1_000_000.0)?;
+        writeln!(&mut stdout, "  Image frames (APIC): {} ({:.1} MB total)", image_count, total_image_bytes as f64 / 1_000_000.0)?;
         stdout.reset()?;
     }
     if large_frames > 0 {

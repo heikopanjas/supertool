@@ -1,8 +1,7 @@
 /// User-Defined URL Link Frame (WXXX)
 ///
 /// Structure: Text encoding + Description + URL
-
-use crate::id3v2_text_encoding::{TextEncoding, find_text_terminator, decode_text_with_encoding_simple, decode_iso88591_string};
+use crate::id3v2_text_encoding::{TextEncoding, decode_iso88591_string, decode_text_with_encoding_simple, find_text_terminator};
 
 #[derive(Debug, Clone)]
 pub struct UserUrlFrame {
@@ -32,10 +31,6 @@ impl UserUrlFrame {
         // URL is always ISO-8859-1
         let url = decode_iso88591_string(url_bytes);
 
-        Ok(UserUrlFrame {
-            encoding,
-            description,
-            url,
-        })
+        Ok(UserUrlFrame { encoding, description, url })
     }
 }

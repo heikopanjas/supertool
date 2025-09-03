@@ -271,6 +271,22 @@ impl fmt::Display for Id3v2Frame {
                     writeln!(f)?;
                     write!(f, "    URL: \"{}\"", user_url_frame.url)?;
                 }
+                | Id3v2FrameContent::Comment(comment_frame) => {
+                    writeln!(f)?;
+                    write!(f, "    Encoding: {}", comment_frame.encoding)?;
+                    writeln!(f)?;
+                    write!(f, "    Language: \"{}\"", comment_frame.language)?;
+                    if !comment_frame.description.is_empty() {
+                        writeln!(f)?;
+                        write!(f, "    Description: \"{}\"", comment_frame.description)?;
+                    }
+                    writeln!(f)?;
+                    if comment_frame.text.len() > 100 {
+                        write!(f, "    Text: \"{}...\"", comment_frame.text.chars().take(100).collect::<String>())?;
+                    } else {
+                        write!(f, "    Text: \"{}\"", comment_frame.text)?;
+                    }
+                }
                 | _ => {
                     // For other frame types not yet enhanced, show basic info
                     if let Some(text) = self.get_text() {

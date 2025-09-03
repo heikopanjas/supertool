@@ -1,7 +1,6 @@
 /// Unique File Identifier Frame (UFID)
 ///
 /// Structure: Owner identifier + Identifier
-
 use crate::id3v2_text_encoding::decode_iso88591_string;
 
 #[derive(Debug, Clone)]
@@ -35,9 +34,6 @@ impl UniqueFileIdFrame {
             return Err("UFID identifier too long (max 64 bytes)".to_string());
         }
 
-        Ok(UniqueFileIdFrame {
-            owner_identifier,
-            identifier,
-        })
+        Ok(UniqueFileIdFrame { owner_identifier, identifier })
     }
 }

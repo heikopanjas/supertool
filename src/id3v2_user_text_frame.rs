@@ -1,7 +1,6 @@
 /// User-Defined Text Information Frame (TXXX)
 ///
 /// Structure: Text encoding + Description + Value
-
 use crate::id3v2_text_encoding::{TextEncoding, split_terminated_text};
 
 #[derive(Debug, Clone)]
@@ -26,10 +25,6 @@ impl UserTextFrame {
         let text_data = &data[1..];
         let (description, value) = split_terminated_text(text_data, encoding)?;
 
-        Ok(UserTextFrame {
-            encoding,
-            description,
-            value,
-        })
+        Ok(UserTextFrame { encoding, description, value })
     }
 }

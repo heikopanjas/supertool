@@ -1,8 +1,7 @@
 /// Attached Picture Frame (APIC)
 ///
 /// Structure: Text encoding + MIME type + Picture type + Description + Picture data
-
-use crate::id3v2_text_encoding::{TextEncoding, get_terminator_length, is_null_terminator, decode_iso88591_string, decode_text_with_encoding_simple};
+use crate::id3v2_text_encoding::{TextEncoding, decode_iso88591_string, decode_text_with_encoding_simple, get_terminator_length, is_null_terminator};
 
 #[derive(Debug, Clone)]
 pub struct AttachedPictureFrame {
@@ -62,40 +61,34 @@ impl AttachedPictureFrame {
         // Picture data (rest of the frame)
         let picture_data = data[pos..].to_vec();
 
-        Ok(AttachedPictureFrame {
-            encoding,
-            mime_type,
-            picture_type,
-            description,
-            picture_data,
-        })
+        Ok(AttachedPictureFrame { encoding, mime_type, picture_type, description, picture_data })
     }
 
     /// Get picture type description
     pub fn picture_type_description(&self) -> &'static str {
         match self.picture_type {
-            0x00 => "Other",
-            0x01 => "32x32 pixels 'file icon' (PNG only)",
-            0x02 => "Other file icon",
-            0x03 => "Cover (front)",
-            0x04 => "Cover (back)",
-            0x05 => "Leaflet page",
-            0x06 => "Media (e.g. label side of CD)",
-            0x07 => "Lead artist/lead performer/soloist",
-            0x08 => "Artist/performer",
-            0x09 => "Conductor",
-            0x0A => "Band/Orchestra",
-            0x0B => "Composer",
-            0x0C => "Lyricist/text writer",
-            0x0D => "Recording Location",
-            0x0E => "During recording",
-            0x0F => "During performance",
-            0x10 => "Movie/video screen capture",
-            0x11 => "A bright coloured fish",
-            0x12 => "Illustration",
-            0x13 => "Band/artist logotype",
-            0x14 => "Publisher/Studio logotype",
-            _ => "Unknown",
+            | 0x00 => "Other",
+            | 0x01 => "32x32 pixels 'file icon' (PNG only)",
+            | 0x02 => "Other file icon",
+            | 0x03 => "Cover (front)",
+            | 0x04 => "Cover (back)",
+            | 0x05 => "Leaflet page",
+            | 0x06 => "Media (e.g. label side of CD)",
+            | 0x07 => "Lead artist/lead performer/soloist",
+            | 0x08 => "Artist/performer",
+            | 0x09 => "Conductor",
+            | 0x0A => "Band/Orchestra",
+            | 0x0B => "Composer",
+            | 0x0C => "Lyricist/text writer",
+            | 0x0D => "Recording Location",
+            | 0x0E => "During recording",
+            | 0x0F => "During performance",
+            | 0x10 => "Movie/video screen capture",
+            | 0x11 => "A bright coloured fish",
+            | 0x12 => "Illustration",
+            | 0x13 => "Band/artist logotype",
+            | 0x14 => "Publisher/Studio logotype",
+            | _ => "Unknown",
         }
     }
 }

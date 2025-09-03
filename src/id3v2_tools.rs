@@ -140,8 +140,8 @@ pub fn detect_mpeg_sync(header: &[u8]) -> bool {
 
 /// Read and parse ID3v2 header, returning version info and tag size
 pub fn read_id3v2_header(file: &mut File) -> Result<Option<Id3v2Header>, Box<dyn std::error::Error>> {
-    use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
     use std::io::Write;
+    use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
     // Seek to beginning and read ID3v2 header
     file.seek(SeekFrom::Start(0))?;
@@ -170,10 +170,16 @@ pub fn read_id3v2_header(file: &mut File) -> Result<Option<Id3v2Header>, Box<dyn
 
     // Add diagnostic for size bytes and calculation
     stdout.set_color(ColorSpec::new().set_fg(Some(Color::Cyan)))?;
-    writeln!(&mut stdout, "  Size bytes: [0x{:02X}, 0x{:02X}, 0x{:02X}, 0x{:02X}]",
-        id3_header[6], id3_header[7], id3_header[8], id3_header[9])?;
-    writeln!(&mut stdout, "  Size calculation: ({} << 21) | ({} << 14) | ({} << 7) | {} = {}",
-        id3_header[6] & 0x7F, id3_header[7] & 0x7F, id3_header[8] & 0x7F, id3_header[9] & 0x7F, size)?;
+    writeln!(&mut stdout, "  Size bytes: [0x{:02X}, 0x{:02X}, 0x{:02X}, 0x{:02X}]", id3_header[6], id3_header[7], id3_header[8], id3_header[9])?;
+    writeln!(
+        &mut stdout,
+        "  Size calculation: ({} << 21) | ({} << 14) | ({} << 7) | {} = {}",
+        id3_header[6] & 0x7F,
+        id3_header[7] & 0x7F,
+        id3_header[8] & 0x7F,
+        id3_header[9] & 0x7F,
+        size
+    )?;
     stdout.reset()?;
 
     // Validate synchsafe format (each byte should have MSB = 0)
@@ -318,8 +324,8 @@ pub fn is_valid_id3v2_3_frame(frame_id: &str) -> bool {
         "TOLY", "TOPE", "TORY", "TOWN", "TPE1", "TPE2", "TPE3", "TPE4", "TPOS", "TPUB", "TRCK", "TRDA", "TRSN", "TRSO", "TSIZ", "TSRC", "TSSE", "TYER", "TXXX",
         // URL link frames
         "WCOM", "WCOP", "WOAF", "WOAR", "WOAS", "WORS", "WPAY", "WPUB", "WXXX", // Other frames
-        "UFID", "MCDI", "ETCO", "MLLT", "SYTC", "USLT", "SYLT", "COMM", "RVAD", "EQUA", "RVRB", "PCNT", "POPM", "RBUF", "AENC", "LINK", "POSS", "USER", "OWNE", "COMR",
-        "ENCR", "GRID", "PRIV", "GEOB", "IPLS", "APIC", // Chapter frames (ID3v2 Chapter Frame Addendum)
+        "UFID", "MCDI", "ETCO", "MLLT", "SYTC", "USLT", "SYLT", "COMM", "RVAD", "EQUA", "RVRB", "PCNT", "POPM", "RBUF", "AENC", "LINK", "POSS", "USER", "OWNE",
+        "COMR", "ENCR", "GRID", "PRIV", "GEOB", "IPLS", "APIC", // Chapter frames (ID3v2 Chapter Frame Addendum)
         "CHAP", "CTOC",
     ];
 
@@ -334,8 +340,8 @@ pub fn is_valid_id3v2_4_frame(frame_id: &str) -> bool {
         "TLEN", "TMCL", "TMED", "TMOO", "TOAL", "TOFN", "TOLY", "TOPE", "TOWN", "TPE1", "TPE2", "TPE3", "TPE4", "TPOS", "TPRO", "TPUB", "TRCK", "TRSN", "TRSO",
         "TSOA", "TSOP", "TSOT", "TSRC", "TSSE", "TSST", "TXXX", // URL link frames
         "WCOM", "WCOP", "WOAF", "WOAR", "WOAS", "WORS", "WPAY", "WPUB", "WXXX", // Other frames
-        "UFID", "MCDI", "ETCO", "MLLT", "SYTC", "USLT", "SYLT", "COMM", "RVA2", "EQU2", "RVRB", "PCNT", "POPM", "RBUF", "AENC", "LINK", "POSS", "USER", "OWNE", "COMR",
-        "ENCR", "GRID", "PRIV", "GEOB", "APIC", "SEEK", "ASPI", "SIGN", // Chapter frames (ID3v2 Chapter Frame Addendum)
+        "UFID", "MCDI", "ETCO", "MLLT", "SYTC", "USLT", "SYLT", "COMM", "RVA2", "EQU2", "RVRB", "PCNT", "POPM", "RBUF", "AENC", "LINK", "POSS", "USER", "OWNE",
+        "COMR", "ENCR", "GRID", "PRIV", "GEOB", "APIC", "SEEK", "ASPI", "SIGN", // Chapter frames (ID3v2 Chapter Frame Addendum)
         "CHAP", "CTOC",
     ];
 

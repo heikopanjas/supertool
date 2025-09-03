@@ -1,7 +1,6 @@
 /// Comment Frame (COMM, USLT)
 ///
 /// Structure: Text encoding + Language + Short description + Full text
-
 use crate::id3v2_text_encoding::{TextEncoding, split_terminated_text};
 
 #[derive(Debug, Clone)]
@@ -28,11 +27,6 @@ impl CommentFrame {
         let text_data = &data[4..];
         let (description, text) = split_terminated_text(text_data, encoding)?;
 
-        Ok(CommentFrame {
-            encoding,
-            language,
-            description,
-            text,
-        })
+        Ok(CommentFrame { encoding, language, description, text })
     }
 }
