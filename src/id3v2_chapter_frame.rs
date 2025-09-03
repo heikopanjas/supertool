@@ -71,8 +71,7 @@ impl ChapterFrame {
 
         // Parse embedded sub-frames (rest of the data)
         let sub_frames = if pos < data.len() {
-            let (_, frames) = crate::id3v2_tools::parse_embedded_frames(&data[pos..], 0, version_major);
-            frames
+            Self::parse_embedded_frames(&data[pos..], version_major)
         } else {
             Vec::new()
         };
@@ -92,5 +91,54 @@ impl ChapterFrame {
         } else {
             0
         }
+    }
+
+    /// Parse embedded sub-frames from CHAP frame data
+    fn parse_embedded_frames(frame_data: &[u8], version_major: u8) -> Vec<Id3v2Frame> {
+        let mut embedded_frames = Vec::new();
+        let mut pos = 0;
+
+        while pos + 10 <= frame_data.len() {
+            // Try to parse a sub-frame
+            let frame_id = String::from_utf8_lossy(&frame_data[pos..pos + 4]).to_string();
+
+            // Check if we've reached padding or end of data
+            if frame_id.starts_with('\0') || !frame_id.chars().all(|c| c.is_ascii_alphanumeric()) {
+                break;
+            }
+
+            // Validate frame ID for the given version
+            if !crate::id3v2_tools::is_valid_frame_for_version(&frame_id, version_major) {
+                break;
+            }
+
+            // Parse frame size based on ID3v2 version
+            let frame_size = if version_major == 4 {
+                // ID3v2.4 uses synchsafe integers
+                crate::id3v2_tools::decode_synchsafe_int(&frame_data[pos + 4..pos + 8])
+            } else {
+                // ID3v2.3 uses big-endian integers
+                u32::from_be_bytes([frame_data[pos + 4], frame_data[pos + 5], frame_data[pos + 6], frame_data[pos + 7]])
+            };
+
+            let frame_flags = u16::from_be_bytes([frame_data[pos + 8], frame_data[pos + 9]]);
+
+            // Ensure we have enough data for the complete frame
+            if pos + 10 + frame_size as usize > frame_data.len() {
+                break;
+            }
+
+            // Extract frame data
+            let data = frame_data[pos + 10..pos + 10 + frame_size as usize].to_vec();
+
+            // Create the embedded frame
+            let embedded_frame = Id3v2Frame::new(frame_id, frame_size, frame_flags, data);
+            embedded_frames.push(embedded_frame);
+
+            // Move to next frame
+            pos += 10 + frame_size as usize;
+        }
+
+        embedded_frames
     }
 }

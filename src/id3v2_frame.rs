@@ -75,21 +75,63 @@ impl Id3v2Frame {
 
     /// Parse frame content based on frame ID
     pub fn parse_content(&mut self, version_major: u8) -> Result<(), String> {
+        // Validate that this frame is valid for the given ID3v2 version
+        if !crate::id3v2_tools::is_valid_frame_for_version(&self.id, version_major) {
+            // Invalid frame for this version, store as binary data
+            self.content = Some(Id3v2FrameContent::Binary(self.data.clone()));
+            return Ok(());
+        }
+
         let content = match self.id.as_str() {
             // Text information frames
-            | id if id.starts_with('T') && id != "TXXX" => Id3v2FrameContent::Text(TextFrame::parse(&self.data)?),
-            // URL link frames
+            | id if id.starts_with('T') && id != "TXXX" => {
+                let text_frame = TextFrame::parse(&self.data)?;
+                // Validate text encoding for this ID3v2 version
+                if !text_frame.encoding.is_valid_for_version(version_major) {
+                    return Err(format!("Text encoding {:?} is not valid for ID3v2.{}", text_frame.encoding, version_major));
+                }
+                Id3v2FrameContent::Text(text_frame)
+            },
+            // URL link frames (no encoding to validate)
             | id if id.starts_with('W') && id != "WXXX" => Id3v2FrameContent::Url(UrlFrame::parse(&self.data)?),
             // User-defined frames
-            | "TXXX" => Id3v2FrameContent::UserText(UserTextFrame::parse(&self.data)?),
-            | "WXXX" => Id3v2FrameContent::UserUrl(UserUrlFrame::parse(&self.data)?),
+            | "TXXX" => {
+                let user_text_frame = UserTextFrame::parse(&self.data)?;
+                // Validate text encoding for this ID3v2 version
+                if !user_text_frame.encoding.is_valid_for_version(version_major) {
+                    return Err(format!("Text encoding {:?} is not valid for ID3v2.{}", user_text_frame.encoding, version_major));
+                }
+                Id3v2FrameContent::UserText(user_text_frame)
+            },
+            | "WXXX" => {
+                let user_url_frame = UserUrlFrame::parse(&self.data)?;
+                // Validate text encoding for this ID3v2 version
+                if !user_url_frame.encoding.is_valid_for_version(version_major) {
+                    return Err(format!("Text encoding {:?} is not valid for ID3v2.{}", user_url_frame.encoding, version_major));
+                }
+                Id3v2FrameContent::UserUrl(user_url_frame)
+            },
             // Comment frames
-            | "COMM" | "USLT" => Id3v2FrameContent::Comment(CommentFrame::parse(&self.data)?),
+            | "COMM" | "USLT" => {
+                let comment_frame = CommentFrame::parse(&self.data)?;
+                // Validate text encoding for this ID3v2 version
+                if !comment_frame.encoding.is_valid_for_version(version_major) {
+                    return Err(format!("Text encoding {:?} is not valid for ID3v2.{}", comment_frame.encoding, version_major));
+                }
+                Id3v2FrameContent::Comment(comment_frame)
+            },
             // Attached picture
-            | "APIC" => Id3v2FrameContent::Picture(AttachedPictureFrame::parse(&self.data)?),
-            // Unique file identifier
+            | "APIC" => {
+                let picture_frame = AttachedPictureFrame::parse(&self.data)?;
+                // Validate text encoding for this ID3v2 version
+                if !picture_frame.encoding.is_valid_for_version(version_major) {
+                    return Err(format!("Text encoding {:?} is not valid for ID3v2.{}", picture_frame.encoding, version_major));
+                }
+                Id3v2FrameContent::Picture(picture_frame)
+            },
+            // Unique file identifier (no encoding)
             | "UFID" => Id3v2FrameContent::UniqueFileId(UniqueFileIdFrame::parse(&self.data)?),
-            // Chapter frames
+            // Chapter frames (may contain sub-frames with their own validation)
             | "CHAP" => Id3v2FrameContent::Chapter(ChapterFrame::parse(&self.data, version_major)?),
             | "CTOC" => Id3v2FrameContent::TableOfContents(TableOfContentsFrame::parse(&self.data, version_major)?),
             // Other frames remain as binary data

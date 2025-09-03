@@ -8,18 +8,6 @@ use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 /// ID3v2.4 dissector for MP3 files
 pub struct Id3v24Dissector;
 
-/// Valid frame IDs for ID3v2.4 according to the specification
-const VALID_ID3V2_4_FRAME_IDS: &[&str] = &[
-    // Text information frames
-    "TALB", "TBPM", "TCOM", "TCON", "TCOP", "TDEN", "TDLY", "TDOR", "TDRC", "TDRL", "TDTG", "TENC", "TEXT", "TFLT", "TIPL", "TIT1", "TIT2", "TIT3", "TKEY", "TLAN",
-    "TLEN", "TMCL", "TMED", "TMOO", "TOAL", "TOFN", "TOLY", "TOPE", "TOWN", "TPE1", "TPE2", "TPE3", "TPE4", "TPOS", "TPRO", "TPUB", "TRCK", "TRSN", "TRSO", "TSOA",
-    "TSOP", "TSOT", "TSRC", "TSSE", "TSST", "TXXX", // URL link frames
-    "WCOM", "WCOP", "WOAF", "WOAR", "WOAS", "WORS", "WPAY", "WPUB", "WXXX", // Other frames
-    "UFID", "MCDI", "ETCO", "MLLT", "SYTC", "USLT", "SYLT", "COMM", "RVA2", "EQU2", "RVRB", "PCNT", "POPM", "RBUF", "AENC", "LINK", "POSS", "USER", "OWNE", "COMR",
-    "ENCR", "GRID", "PRIV", "GEOB", "APIC", "SEEK", "ASPI", "SIGN", // Chapter frames (ID3v2 Chapter Frame Addendum)
-    "CHAP", "CTOC",
-];
-
 /// Parse an ID3v2.4 frame from raw buffer data
 pub fn parse_id3v2_4_frame(buffer: &[u8], pos: usize) -> Option<Id3v2Frame> {
     if pos + 10 > buffer.len() {
@@ -34,7 +22,7 @@ pub fn parse_id3v2_4_frame(buffer: &[u8], pos: usize) -> Option<Id3v2Frame> {
     }
 
     // Check if this is a valid ID3v2.4 frame ID
-    if !VALID_ID3V2_4_FRAME_IDS.contains(&frame_id.as_str()) {
+    if !crate::id3v2_tools::is_valid_frame_for_version(&frame_id, 4) {
         return None;
     }
 
@@ -118,8 +106,22 @@ pub fn dissect_id3v2_4_file(file: &mut File) -> Result<(), Box<dyn std::error::E
 
             writeln!(&mut stdout, "  Tag Size: {} bytes", size)?;
 
-            if size > 0 && size < 1_000_000 {
-                // Basic sanity check
+            if size > 100_000_000 {
+                stdout.set_color(ColorSpec::new().set_fg(Some(Color::Red)).set_bold(true))?;
+                writeln!(&mut stdout, "  WARNING: Extremely large tag size (> 100MB), verify file integrity")?;
+                stdout.reset()?;
+            } else if size > 50_000_000 {
+                stdout.set_color(ColorSpec::new().set_fg(Some(Color::Yellow)).set_bold(true))?;
+                writeln!(&mut stdout, "  WARNING: Tag size is very large (> 50MB), likely rich podcast with chapter images")?;
+                stdout.reset()?;
+            } else if size > 10_000_000 {
+                stdout.set_color(ColorSpec::new().set_fg(Some(Color::Cyan)))?;
+                writeln!(&mut stdout, "  INFO: Large tag size (> 10MB), possibly podcast with embedded chapter content")?;
+                stdout.reset()?;
+            }
+
+            if size > 0 {
+                // Allow very large tags for podcast content with chapter images
                 dissect_id3v2_4(file, size, flags)?;
             }
         } else {
@@ -136,8 +138,26 @@ pub fn dissect_id3v2_4_file(file: &mut File) -> Result<(), Box<dyn std::error::E
 
 pub fn dissect_id3v2_4(file: &mut File, tag_size: u32, flags: u8) -> Result<(), Box<dyn std::error::Error>> {
     let mut stdout = StandardStream::stdout(ColorChoice::Auto);
+    
+    // Diagnostic output
+    stdout.set_color(ColorSpec::new().set_fg(Some(Color::Cyan)))?;
+    writeln!(&mut stdout, "\nDissecting ID3v2.4 tag (size: {} bytes, flags: 0x{:02X})...", tag_size, flags)?;
+    stdout.reset()?;
+
     let mut buffer = vec![0u8; tag_size as usize];
-    file.read_exact(&mut buffer)?;
+    match file.read_exact(&mut buffer) {
+        Ok(_) => {
+            stdout.set_color(ColorSpec::new().set_fg(Some(Color::Green)))?;
+            writeln!(&mut stdout, "Successfully read {} bytes of tag data", tag_size)?;
+            stdout.reset()?;
+        }
+        Err(e) => {
+            stdout.set_color(ColorSpec::new().set_fg(Some(Color::Red)).set_bold(true))?;
+            writeln!(&mut stdout, "ERROR: Failed to read tag data: {}", e)?;
+            stdout.reset()?;
+            return Err(Box::new(e));
+        }
+    }
 
     // Handle unsynchronization if flag is set
     let unsync_flag = flags & 0x80 != 0; // Bit 7
@@ -146,6 +166,9 @@ pub fn dissect_id3v2_4(file: &mut File, tag_size: u32, flags: u8) -> Result<(), 
         writeln!(&mut stdout, "  Unsynchronization detected - removing sync bytes")?;
         stdout.reset()?;
         buffer = remove_unsynchronization(&buffer);
+        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Green)))?;
+        writeln!(&mut stdout, "  After unsynchronization removal: {} bytes", buffer.len())?;
+        stdout.reset()?;
     }
 
     stdout.set_color(ColorSpec::new().set_fg(Some(Color::Yellow)).set_bold(true))?;
@@ -156,22 +179,58 @@ pub fn dissect_id3v2_4(file: &mut File, tag_size: u32, flags: u8) -> Result<(), 
     let mut frame_start = 0;
     if flags & 0x40 != 0 {
         // Extended header flag
+        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Yellow)))?;
+        writeln!(&mut stdout, "Extended header flag set, parsing...")?;
+        stdout.reset()?;
+        
         if buffer.len() >= 4 {
             // ID3v2.4 uses synchsafe integers for extended header size
             let extended_size = decode_synchsafe_int(&buffer[0..4]);
             frame_start = 4 + extended_size as usize;
-            writeln!(&mut stdout, "  Extended header found (size: {} bytes)", extended_size)?;
+            
+            stdout.set_color(ColorSpec::new().set_fg(Some(Color::Cyan)))?;
+            writeln!(&mut stdout, "  Extended header size: {} bytes", extended_size)?;
+            writeln!(&mut stdout, "  Frame data starts at position: {}", frame_start)?;
+            stdout.reset()?;
+            
+            if frame_start > buffer.len() {
+                stdout.set_color(ColorSpec::new().set_fg(Some(Color::Red)).set_bold(true))?;
+                writeln!(&mut stdout, "  ERROR: Extended header size exceeds buffer length")?;
+                stdout.reset()?;
+                return Err("Invalid extended header size".into());
+            }
+        } else {
+            stdout.set_color(ColorSpec::new().set_fg(Some(Color::Red)).set_bold(true))?;
+            writeln!(&mut stdout, "  ERROR: Buffer too small to read extended header size")?;
+            stdout.reset()?;
+            return Err("Buffer too small for extended header".into());
         }
     }
 
     let mut pos = frame_start;
+    let mut frame_count = 0;
+    let mut parsing_errors = 0;
+    let mut invalid_frames = 0;
+    let mut chapter_count = 0;
+    let mut image_count = 0;
+    let mut large_frames = 0;
+    let mut total_image_bytes = 0u64;
+
     while pos + 10 <= buffer.len() {
         // ID3v2.4 frame header: 4 bytes ID + 4 bytes size + 2 bytes flags
-        let frame_id = std::str::from_utf8(&buffer[pos..pos + 4]).unwrap_or("????");
+        let frame_id_bytes = &buffer[pos..pos + 4];
+        let frame_id = std::str::from_utf8(frame_id_bytes).unwrap_or("????");
+
+        // Diagnostic output for frame header
+        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Cyan)))?;
+        writeln!(&mut stdout, "  Frame at position {}: ID bytes = {:02X?} (\"{}\")", pos, frame_id_bytes, frame_id)?;
+        stdout.reset()?;
 
         // Stop if we hit padding (null bytes)
         if frame_id.starts_with('\0') {
-            writeln!(&mut stdout, "  Reached padding section")?;
+            stdout.set_color(ColorSpec::new().set_fg(Some(Color::Blue)))?;
+            writeln!(&mut stdout, "  Reached padding section at position {}", pos)?;
+            stdout.reset()?;
             break;
         }
 
@@ -180,30 +239,113 @@ pub fn dissect_id3v2_4(file: &mut File, tag_size: u32, flags: u8) -> Result<(), 
             let frame_size = decode_synchsafe_int(&buffer[pos + 4..pos + 8]);
             let frame_flags = u16::from_be_bytes([buffer[pos + 8], buffer[pos + 9]]);
 
-            if frame_size > 0 && frame_size < (buffer.len() - pos - 10) as u32 {
-                // Parse the frame using the new typed system
-                if let Some(frame) = parse_id3v2_4_frame(&buffer, pos) {
-                    stdout.set_color(ColorSpec::new().set_fg(Some(Color::Green)))?;
-                    write!(&mut stdout, "  {}", frame)?;
-                    stdout.reset()?;
-                } else {
-                    stdout.set_color(ColorSpec::new().set_fg(Some(Color::Green)))?;
-                    write!(&mut stdout, "  Frame: {}", frame_id)?;
-                    stdout.reset()?;
-                    write!(&mut stdout, " (size: {} bytes", frame_size)?;
+            // Diagnostic for frame size
+            stdout.set_color(ColorSpec::new().set_fg(Some(Color::Cyan)))?;
+            writeln!(&mut stdout, "    Size bytes: [{:02X}, {:02X}, {:02X}, {:02X}] = {} bytes (synchsafe)", 
+                buffer[pos + 4], buffer[pos + 5], buffer[pos + 6], buffer[pos + 7], frame_size)?;
+            writeln!(&mut stdout, "    Flags: 0x{:04X}", frame_flags)?;
+            stdout.reset()?;
 
-                    // Interpret frame flags for ID3v2.4
-                    interpret_id3v2_4_frame_flags(frame_flags)?;
-                    writeln!(&mut stdout, ")")?;
+            // Validate frame ID for ID3v2.4
+            if !is_valid_frame_for_version(frame_id, 4) {
+                stdout.set_color(ColorSpec::new().set_fg(Some(Color::Red)))?;
+                writeln!(&mut stdout, "    WARNING: Unknown frame ID for ID3v2.4: {}", frame_id)?;
+                stdout.reset()?;
+                invalid_frames += 1;
+            }
+
+            if frame_size > 0 && frame_size <= (buffer.len() - pos - 10) as u32 {
+                // Track frame types for diagnostics
+                if frame_id == "CHAP" {
+                    chapter_count += 1;
+                } else if frame_id == "APIC" {
+                    image_count += 1;
+                    total_image_bytes += frame_size as u64;
+                }
+                
+                if frame_size > 1_000_000 {
+                    large_frames += 1;
+                }
+
+                // Parse the frame using the new typed system
+                match parse_id3v2_4_frame(&buffer, pos) {
+                    Some(frame) => {
+                        frame_count += 1;
+                        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Green)))?;
+                        write!(&mut stdout, "  {}", frame)?;
+                        stdout.reset()?;
+                    }
+                    None => {
+                        parsing_errors += 1;
+                        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Yellow)))?;
+                        writeln!(&mut stdout, "    WARNING: Failed to parse frame, showing raw info")?;
+                        stdout.reset()?;
+                        
+                        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Green)))?;
+                        write!(&mut stdout, "  Frame: {}", frame_id)?;
+                        stdout.reset()?;
+                        write!(&mut stdout, " (size: {} bytes", frame_size)?;
+
+                        // Interpret frame flags for ID3v2.4
+                        interpret_id3v2_4_frame_flags(frame_flags)?;
+                        writeln!(&mut stdout, ")")?;
+                    }
                 }
 
                 pos += 10 + frame_size as usize;
+            } else if frame_size == 0 {
+                stdout.set_color(ColorSpec::new().set_fg(Some(Color::Yellow)))?;
+                writeln!(&mut stdout, "    WARNING: Zero-sized frame, skipping")?;
+                stdout.reset()?;
+                pos += 10; // Skip frame header
             } else {
+                stdout.set_color(ColorSpec::new().set_fg(Some(Color::Red)).set_bold(true))?;
+                writeln!(&mut stdout, "    ERROR: Frame size {} exceeds remaining buffer ({} bytes)", 
+                    frame_size, buffer.len() - pos - 10)?;
+                stdout.reset()?;
+                parsing_errors += 1;
                 break;
             }
         } else {
+            stdout.set_color(ColorSpec::new().set_fg(Some(Color::Yellow)))?;
+            writeln!(&mut stdout, "    Invalid frame ID format, stopping frame parsing")?;
+            stdout.reset()?;
             break;
         }
+    }
+
+    // Summary diagnostics
+    stdout.set_color(ColorSpec::new().set_fg(Some(Color::Green)).set_bold(true))?;
+    writeln!(&mut stdout, "\nID3v2.4 Parsing Summary:")?;
+    stdout.reset()?;
+    writeln!(&mut stdout, "  Frames parsed: {}", frame_count)?;
+    writeln!(&mut stdout, "  Parsing errors: {}", parsing_errors)?;
+    writeln!(&mut stdout, "  Invalid frame IDs: {}", invalid_frames)?;
+    writeln!(&mut stdout, "  Bytes processed: {} / {}", pos, tag_size)?;
+    
+    // Enhanced statistics for large tags
+    if chapter_count > 0 {
+        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Cyan)))?;
+        writeln!(&mut stdout, "  Chapter frames (CHAP): {}", chapter_count)?;
+        stdout.reset()?;
+    }
+    if image_count > 0 {
+        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Cyan)))?;
+        writeln!(&mut stdout, "  Image frames (APIC): {} ({:.1} MB total)", 
+            image_count, total_image_bytes as f64 / 1_000_000.0)?;
+        stdout.reset()?;
+    }
+    if large_frames > 0 {
+        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Yellow)))?;
+        writeln!(&mut stdout, "  Large frames (>1MB): {}", large_frames)?;
+        stdout.reset()?;
+    }
+    
+    if pos < tag_size as usize {
+        let remaining = tag_size as usize - pos;
+        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Yellow)))?;
+        writeln!(&mut stdout, "  Unprocessed bytes: {} (likely padding)", remaining)?;
+        stdout.reset()?;
     }
 
     Ok(())

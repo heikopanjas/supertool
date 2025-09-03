@@ -140,6 +140,9 @@ pub fn detect_mpeg_sync(header: &[u8]) -> bool {
 
 /// Read and parse ID3v2 header, returning version info and tag size
 pub fn read_id3v2_header(file: &mut File) -> Result<Option<Id3v2Header>, Box<dyn std::error::Error>> {
+    use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
+    use std::io::Write;
+    
     // Seek to beginning and read ID3v2 header
     file.seek(SeekFrom::Start(0))?;
     let mut id3_header = [0u8; 10];
@@ -156,8 +159,39 @@ pub fn read_id3v2_header(file: &mut File) -> Result<Option<Id3v2Header>, Box<dyn
     let version_minor = id3_header[4];
     let flags = id3_header[5];
 
+    // Add diagnostic output for raw header bytes
+    let mut stdout = StandardStream::stdout(ColorChoice::Auto);
+    stdout.set_color(ColorSpec::new().set_fg(Some(Color::Magenta)))?;
+    writeln!(&mut stdout, "  Raw header bytes: {:02X?}", id3_header)?;
+    stdout.reset()?;
+
     // Calculate tag size (synchsafe integer)
     let size = decode_synchsafe_int(&id3_header[6..10]);
+    
+    // Add diagnostic for size bytes and calculation
+    stdout.set_color(ColorSpec::new().set_fg(Some(Color::Cyan)))?;
+    writeln!(&mut stdout, "  Size bytes: [0x{:02X}, 0x{:02X}, 0x{:02X}, 0x{:02X}]", 
+        id3_header[6], id3_header[7], id3_header[8], id3_header[9])?;
+    writeln!(&mut stdout, "  Size calculation: ({} << 21) | ({} << 14) | ({} << 7) | {} = {}", 
+        id3_header[6] & 0x7F, id3_header[7] & 0x7F, id3_header[8] & 0x7F, id3_header[9] & 0x7F, size)?;
+    stdout.reset()?;
+
+    // Validate synchsafe format (each byte should have MSB = 0)
+    let mut synchsafe_violation = false;
+    for (i, &byte) in id3_header[6..10].iter().enumerate() {
+        if byte & 0x80 != 0 {
+            stdout.set_color(ColorSpec::new().set_fg(Some(Color::Red)).set_bold(true))?;
+            writeln!(&mut stdout, "  WARNING: Size byte {} (0x{:02X}) violates synchsafe format (MSB set)!", i, byte)?;
+            stdout.reset()?;
+            synchsafe_violation = true;
+        }
+    }
+    
+    if synchsafe_violation {
+        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Red)).set_bold(true))?;
+        writeln!(&mut stdout, "  ERROR: Invalid synchsafe format detected in size field")?;
+        stdout.reset()?;
+    }
 
     Ok(Some((version_major, version_minor, flags, size)))
 }
@@ -276,47 +310,43 @@ pub fn interpret_id3v2_4_frame_flags(flags: u16) -> Result<(), Box<dyn std::erro
     Ok(())
 }
 
-/// Parse embedded frames from CHAP or CTOC frame data
-/// Returns (parsed_data_length, embedded_frames)
-pub fn parse_embedded_frames(frame_data: &[u8], start_offset: usize, version_major: u8) -> (usize, Vec<crate::id3v2_frame::Id3v2Frame>) {
-    let mut embedded_frames = Vec::new();
-    let mut pos = start_offset;
+/// Check if a frame ID is valid for ID3v2.3
+pub fn is_valid_id3v2_3_frame(frame_id: &str) -> bool {
+    const VALID_ID3V2_3_FRAME_IDS: &[&str] = &[
+        // Text information frames
+        "TALB", "TBPM", "TCOM", "TCON", "TCOP", "TDAT", "TDLY", "TENC", "TEXT", "TFLT", "TIME", "TIT1", "TIT2", "TIT3", "TKEY", "TLAN", "TLEN", "TMED", "TOAL", "TOFN",
+        "TOLY", "TOPE", "TORY", "TOWN", "TPE1", "TPE2", "TPE3", "TPE4", "TPOS", "TPUB", "TRCK", "TRDA", "TRSN", "TRSO", "TSIZ", "TSRC", "TSSE", "TYER", "TXXX",
+        // URL link frames
+        "WCOM", "WCOP", "WOAF", "WOAR", "WOAS", "WORS", "WPAY", "WPUB", "WXXX", // Other frames
+        "UFID", "MCDI", "ETCO", "MLLT", "SYTC", "USLT", "SYLT", "COMM", "RVAD", "EQUA", "RVRB", "PCNT", "POPM", "RBUF", "AENC", "LINK", "POSS", "USER", "OWNE", "COMR",
+        "ENCR", "GRID", "PRIV", "GEOB", "IPLS", "APIC", // Chapter frames (ID3v2 Chapter Frame Addendum)
+        "CHAP", "CTOC",
+    ];
 
-    while pos + 10 <= frame_data.len() {
-        // Try to parse a sub-frame
-        let frame_id = String::from_utf8_lossy(&frame_data[pos..pos + 4]).to_string();
+    VALID_ID3V2_3_FRAME_IDS.contains(&frame_id)
+}
 
-        // Check if we've reached padding or end of data
-        if frame_id.starts_with('\0') || !frame_id.chars().all(|c| c.is_ascii_alphanumeric()) {
-            break;
-        }
+/// Check if a frame ID is valid for ID3v2.4
+pub fn is_valid_id3v2_4_frame(frame_id: &str) -> bool {
+    const VALID_ID3V2_4_FRAME_IDS: &[&str] = &[
+        // Text information frames
+        "TALB", "TBPM", "TCOM", "TCON", "TCOP", "TDEN", "TDLY", "TDOR", "TDRC", "TDRL", "TDTG", "TENC", "TEXT", "TFLT", "TIPL", "TIT1", "TIT2", "TIT3", "TKEY", "TLAN",
+        "TLEN", "TMCL", "TMED", "TMOO", "TOAL", "TOFN", "TOLY", "TOPE", "TOWN", "TPE1", "TPE2", "TPE3", "TPE4", "TPOS", "TPRO", "TPUB", "TRCK", "TRSN", "TRSO",
+        "TSOA", "TSOP", "TSOT", "TSRC", "TSSE", "TSST", "TXXX", // URL link frames
+        "WCOM", "WCOP", "WOAF", "WOAR", "WOAS", "WORS", "WPAY", "WPUB", "WXXX", // Other frames
+        "UFID", "MCDI", "ETCO", "MLLT", "SYTC", "USLT", "SYLT", "COMM", "RVA2", "EQU2", "RVRB", "PCNT", "POPM", "RBUF", "AENC", "LINK", "POSS", "USER", "OWNE", "COMR",
+        "ENCR", "GRID", "PRIV", "GEOB", "APIC", "SEEK", "ASPI", "SIGN", // Chapter frames (ID3v2 Chapter Frame Addendum)
+        "CHAP", "CTOC",
+    ];
 
-        // Parse frame size based on ID3v2 version
-        let frame_size = if version_major == 4 {
-            // ID3v2.4 uses synchsafe integers
-            decode_synchsafe_int(&frame_data[pos + 4..pos + 8])
-        } else {
-            // ID3v2.3 uses big-endian integers
-            u32::from_be_bytes([frame_data[pos + 4], frame_data[pos + 5], frame_data[pos + 6], frame_data[pos + 7]])
-        };
+    VALID_ID3V2_4_FRAME_IDS.contains(&frame_id)
+}
 
-        let frame_flags = u16::from_be_bytes([frame_data[pos + 8], frame_data[pos + 9]]);
-
-        // Ensure we have enough data for the complete frame
-        if pos + 10 + frame_size as usize > frame_data.len() {
-            break;
-        }
-
-        // Extract frame data
-        let data = frame_data[pos + 10..pos + 10 + frame_size as usize].to_vec();
-
-        // Create the embedded frame
-        let embedded_frame = crate::id3v2_frame::Id3v2Frame::new(frame_id, frame_size, frame_flags, data);
-        embedded_frames.push(embedded_frame);
-
-        // Move to next frame
-        pos += 10 + frame_size as usize;
+/// Check if a frame ID is valid for a specific ID3v2 version
+pub fn is_valid_frame_for_version(frame_id: &str, version_major: u8) -> bool {
+    match version_major {
+        | 3 => is_valid_id3v2_3_frame(frame_id),
+        | 4 => is_valid_id3v2_4_frame(frame_id),
+        | _ => false, // Unsupported version
     }
-
-    (pos - start_offset, embedded_frames)
 }
