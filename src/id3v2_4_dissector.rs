@@ -1,6 +1,7 @@
 use crate::id3v2_frame::Id3v2Frame;
 use crate::id3v2_tools::*;
 use crate::media_dissector::MediaDissector;
+use owo_colors::OwoColorize;
 use std::fs::File;
 use std::io::Read;
 
@@ -130,7 +131,7 @@ pub fn dissect_id3v2_4(file: &mut File, tag_size: u32, flags: u8) -> Result<(), 
             println!("Successfully read {} bytes of tag data", tag_size);
         }
         | Err(e) => {
-            println!("ERROR: Failed to read tag data: {}", e);
+            println!("{}", format!("ERROR: Failed to read tag data: {}", e).bright_red());
             return Err(Box::new(e));
         }
     }
@@ -160,23 +161,16 @@ pub fn dissect_id3v2_4(file: &mut File, tag_size: u32, flags: u8) -> Result<(), 
             println!("  Frame data starts at offset: {}", frame_start);
 
             if frame_start > buffer.len() {
-                println!("  ERROR: Extended header size exceeds buffer length");
+                println!("  {}", format!("ERROR: Extended header size exceeds buffer length").bright_red());
                 return Err("Invalid extended header size".into());
             }
         } else {
-            println!("  ERROR: Buffer too small to read extended header size");
+            println!("  {}", format!("ERROR: Buffer too small to read extended header size").bright_red());
             return Err("Buffer too small for extended header".into());
         }
     }
 
     let mut pos = frame_start;
-    let mut frame_count = 0;
-    let mut parsing_errors = 0;
-    let mut invalid_frames = 0;
-    let mut chapter_count = 0;
-    let mut image_count = 0;
-    let mut large_frames = 0;
-    let mut total_image_bytes = 0u64;
 
     while pos + 10 <= buffer.len() {
         // ID3v2.4 frame header: 4 bytes ID + 4 bytes size + 2 bytes flags
@@ -199,19 +193,18 @@ pub fn dissect_id3v2_4(file: &mut File, tag_size: u32, flags: u8) -> Result<(), 
             let temp_frame = crate::id3v2_frame::Id3v2Frame::new_with_offset(frame_id.to_string(), frame_size, frame_flags, pos, Vec::new());
 
             // Use the unified frame header display function
-            crate::id3v2_tools::display_frame_header(&mut std::io::stdout(), &temp_frame, "  ")?;
+            crate::id3v2_tools::display_frame_header(&mut std::io::stdout(), &temp_frame, "    ")?;
 
-            println!("    ERROR: '{}' is not a valid ID3v2.4 frame ID (may be from ID3v2.3 or other version)", frame_id);
+            println!("    {}", format!("ERROR: '{}' is not a valid ID3v2.4 frame ID (may be from ID3v2.3 or other version)", frame_id).bright_red());
             println!();
 
             // Skip the entire frame (header + data) instead of just 1 byte
             if frame_size > 0 && frame_size <= (buffer.len() - pos - 10) as u32 {
                 pos += 10 + frame_size as usize;
             } else {
-                println!("    ERROR: Invalid frame size {}, falling back to 1-byte skip", frame_size);
+                println!("    {}", format!("ERROR: Invalid frame size {}, falling back to 1-byte skip", frame_size).bright_red());
                 pos += 1;
             }
-            invalid_frames += 1;
             continue;
         }
 
@@ -221,7 +214,6 @@ pub fn dissect_id3v2_4(file: &mut File, tag_size: u32, flags: u8) -> Result<(), 
         if frame_size == 0 {
             println!("  Frame '{}' has zero size, skipping", frame_id);
             pos += 10;
-            invalid_frames += 1;
             continue;
         }
 
@@ -240,35 +232,19 @@ pub fn dissect_id3v2_4(file: &mut File, tag_size: u32, flags: u8) -> Result<(), 
         );
 
         // Use the unified frame header display function
-        crate::id3v2_tools::display_frame_header(&mut std::io::stdout(), &temp_frame, "  ")?;
-
-        // Track statistics
-        if frame_id == "CHAP" {
-            chapter_count += 1;
-        }
-
-        if frame_id == "APIC" {
-            image_count += 1;
-            total_image_bytes += frame_size as u64;
-        }
-
-        if frame_size > 1_000_000 {
-            large_frames += 1;
-        }
+        crate::id3v2_tools::display_frame_header(&mut std::io::stdout(), &temp_frame, "    ")?;
 
         // Parse the frame using the new typed system
         match parse_id3v2_4_frame(&buffer, pos) {
             | Some(frame) => {
-                frame_count += 1;
-                print!("  {}", frame);
+                print!("    {}", frame);
             }
             | None => {
-                parsing_errors += 1;
-                println!("    WARNING: Failed to parse frame, showing raw info");
+                println!("        WARNING: Failed to parse frame, showing raw info");
 
                 let preview_len = std::cmp::min(20, frame_size as usize);
                 let preview_data = &buffer[pos + 10..pos + 10 + preview_len];
-                print!("      Raw data preview: ");
+                print!("          Raw data preview: ");
                 for byte in preview_data {
                     print!("{:02X} ", byte);
                 }
@@ -279,19 +255,6 @@ pub fn dissect_id3v2_4(file: &mut File, tag_size: u32, flags: u8) -> Result<(), 
         // Move to next frame
         pos += 10 + frame_size as usize;
     }
-
-    // Final statistics
-    println!("\nID3v2.4 Tag Statistics:");
-    println!("  Total frames parsed: {}", frame_count);
-    println!("  Parsing errors: {}", parsing_errors);
-    println!("  Invalid frames skipped: {}", invalid_frames);
-    println!("  Chapters: {}", chapter_count);
-    println!("  Images: {} (total: {} bytes / {:.1} MB)", image_count, total_image_bytes, total_image_bytes as f64 / 1_000_000.0);
-    println!("  Large frames (>1MB): {}", large_frames);
-
-    let processed_bytes = pos - frame_start;
-    let unprocessed_bytes = buffer.len() - processed_bytes;
-    println!("  Processed: {} bytes, Unprocessed: {} bytes", processed_bytes, unprocessed_bytes);
 
     Ok(())
 }

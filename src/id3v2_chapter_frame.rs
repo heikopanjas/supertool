@@ -119,9 +119,13 @@ impl fmt::Display for ChapterFrame {
         }
         if !self.sub_frames.is_empty() {
             writeln!(f, "Sub-frames: {} embedded frame(s)", self.sub_frames.len())?;
-            for sub_frame in &self.sub_frames {
+            for (i, sub_frame) in self.sub_frames.iter().enumerate() {
                 // Display content with embedded frame formatting helper
                 display_embedded_frame_content(f, sub_frame)?;
+                // Add newline between embedded frames but not after the last one
+                if i < self.sub_frames.len() - 1 {
+                    writeln!(f)?;
+                }
             }
         }
         Ok(())
@@ -132,9 +136,9 @@ impl fmt::Display for ChapterFrame {
 pub fn display_embedded_frame_content(f: &mut fmt::Formatter<'_>, frame: &Id3v2Frame) -> fmt::Result {
     // Use the new unified frame header display function
     let mut buffer = Vec::new();
-    if let Err(_) = crate::id3v2_tools::display_frame_header(&mut buffer, frame, "          ") {
+    if let Err(_) = crate::id3v2_tools::display_frame_header(&mut buffer, frame, "        ") {
         // Fallback to basic display if header function fails
-        writeln!(f, "          Frame: {} - Size: {} bytes", frame.id, frame.size)?;
+        writeln!(f, "        Frame: {} - Size: {} bytes", frame.id, frame.size)?;
     } else {
         // Convert buffer to string and write to formatter
         if let Ok(header_str) = String::from_utf8(buffer) {
@@ -143,14 +147,14 @@ pub fn display_embedded_frame_content(f: &mut fmt::Formatter<'_>, frame: &Id3v2F
     }
 
     // Format embedded frames like top-level frames but with embedded indentation
-    writeln!(f, "          Frame: {} ({}) - Size: {} bytes", frame.id, get_frame_description(&frame.id), frame.size)?;
+    writeln!(f, "        Frame: {} ({}) - Size: {} bytes", frame.id, get_frame_description(&frame.id), frame.size)?;
 
     if let Some(content) = &frame.content {
-        // Add content with additional indentation (14 spaces total: 10 for embedded + 4 for content)
+        // Add content with additional indentation (12 spaces total: 8 for embedded + 4 for content)
         let content_str = format!("{}", content);
         for line in content_str.lines() {
             if !line.is_empty() {
-                writeln!(f, "              {}", line)?;
+                writeln!(f, "            {}", line)?;
             } else {
                 writeln!(f)?;
             }
@@ -164,10 +168,10 @@ pub fn display_embedded_frame_content(f: &mut fmt::Formatter<'_>, frame: &Id3v2F
                 } else {
                     text.to_string()
                 };
-                writeln!(f, "              Text: \"{}\"", display_text)?;
+                writeln!(f, "            Text: \"{}\"", display_text)?;
             }
         } else if let Some(url) = frame.get_url() {
-            writeln!(f, "              URL: \"{}\"", url)?;
+            writeln!(f, "            URL: \"{}\"", url)?;
         }
     }
     Ok(())

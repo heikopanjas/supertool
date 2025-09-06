@@ -103,9 +103,13 @@ impl fmt::Display for TableOfContentsFrame {
         }
         if self.has_sub_frames() {
             writeln!(f, "Sub-frames: {} embedded frame(s)", self.sub_frames.len())?;
-            for sub_frame in &self.sub_frames {
+            for (i, sub_frame) in self.sub_frames.iter().enumerate() {
                 // Display content with embedded frame formatting helper (same as CHAP)
                 crate::id3v2_chapter_frame::display_embedded_frame_content(f, sub_frame)?;
+                // Add newline between embedded frames but not after the last one
+                if i < self.sub_frames.len() - 1 {
+                    writeln!(f)?;
+                }
             }
         }
         Ok(())
