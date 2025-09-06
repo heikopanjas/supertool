@@ -156,21 +156,16 @@ pub fn read_id3v2_header(file: &mut File) -> Result<Option<Id3v2Header>, Box<dyn
     let flags = id3_header[5];
 
     // Add diagnostic output for raw header bytes
-    println!("  Raw header bytes: {:02X?}", id3_header);
+    println!(
+        "  Raw header bytes: [0x{:02X}, 0x{:02X}, 0x{:02X}, 0x{:02X}, 0x{:02X}, 0x{:02X}, 0x{:02X}, 0x{:02X}, 0x{:02X}, 0x{:02X}]",
+        id3_header[0], id3_header[1], id3_header[2], id3_header[3], id3_header[4], id3_header[5], id3_header[6], id3_header[7], id3_header[8], id3_header[9]
+    );
 
     // Calculate tag size (synchsafe integer)
     let size = decode_synchsafe_int(&id3_header[6..10]);
 
-    // Add diagnostic for size bytes and calculation
+    // Add diagnostic for size bytes
     println!("  Size bytes: [0x{:02X}, 0x{:02X}, 0x{:02X}, 0x{:02X}]", id3_header[6], id3_header[7], id3_header[8], id3_header[9]);
-    println!(
-        "  Size calculation: ({} << 21) | ({} << 14) | ({} << 7) | {} = {}",
-        id3_header[6] & 0x7F,
-        id3_header[7] & 0x7F,
-        id3_header[8] & 0x7F,
-        id3_header[9] & 0x7F,
-        size
-    );
 
     // Validate synchsafe format (each byte should have MSB = 0)
     let mut synchsafe_violation = false;
@@ -324,7 +319,7 @@ pub fn display_frame_header(output: &mut dyn Write, frame: &crate::id3v2_frame::
     if let Some(offset) = frame.offset {
         writeln!(
             output,
-            "{}Frame offset 0x{:08X}, ID bytes = [0x{:02X}, 0x{:02X}, 0x{:02X}, 0x{:02X}] (\"{}\"), Size bytes: [0x{:02X}, 0x{:02X}, 0x{:02X}, 0x{:02X}] = {} bytes, Flags: 0x{:04X}",
+            "{}Frame offset 0x{:08X}, ID: [0x{:02X}, 0x{:02X}, 0x{:02X}, 0x{:02X}] = \"{}\", Size: [0x{:02X}, 0x{:02X}, 0x{:02X}, 0x{:02X}] = {}, Flags: 0x{:04X}",
             indentation,
             offset,
             id_bytes[0],
@@ -343,7 +338,7 @@ pub fn display_frame_header(output: &mut dyn Write, frame: &crate::id3v2_frame::
         // Fallback for frames without offset information
         writeln!(
             output,
-            "{}ID bytes = [0x{:02X}, 0x{:02X}, 0x{:02X}, 0x{:02X}] (\"{}\"), Size bytes: [0x{:02X}, 0x{:02X}, 0x{:02X}, 0x{:02X}] = {} bytes, Flags: 0x{:04X}",
+            "{}ID: [0x{:02X}, 0x{:02X}, 0x{:02X}, 0x{:02X}] = \"{}\", Size: [0x{:02X}, 0x{:02X}, 0x{:02X}, 0x{:02X}] = {}, Flags: 0x{:04X}",
             indentation,
             id_bytes[0],
             id_bytes[1],

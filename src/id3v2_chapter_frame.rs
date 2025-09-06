@@ -119,6 +119,7 @@ impl fmt::Display for ChapterFrame {
         }
         if !self.sub_frames.is_empty() {
             writeln!(f, "Sub-frames: {} embedded frame(s)", self.sub_frames.len())?;
+            writeln!(f)?; // Add newline before first embedded frame
             for (i, sub_frame) in self.sub_frames.iter().enumerate() {
                 // Display content with embedded frame formatting helper
                 display_embedded_frame_content(f, sub_frame)?;

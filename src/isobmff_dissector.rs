@@ -1,3 +1,4 @@
+use crate::cli::DebugOptions;
 use crate::media_dissector::MediaDissector;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
@@ -10,8 +11,8 @@ impl MediaDissector for IsobmffDissector {
         "ISO BMFF"
     }
 
-    fn dissect(&self, file: &mut File) -> Result<(), Box<dyn std::error::Error>> {
-        dissect_isobmff(file)
+    fn dissect_with_options(&self, file: &mut File, options: &DebugOptions) -> Result<(), Box<dyn std::error::Error>> {
+        dissect_isobmff_with_options(file, options)
     }
 
     fn can_handle(&self, header: &[u8]) -> bool {
@@ -28,9 +29,18 @@ impl MediaDissector for IsobmffDissector {
     }
 }
 
-pub fn dissect_isobmff(file: &mut File) -> Result<(), Box<dyn std::error::Error>> {
+pub fn dissect_isobmff_with_options(file: &mut File, options: &DebugOptions) -> Result<(), Box<dyn std::error::Error>> {
     // Seek back to beginning
     file.seek(SeekFrom::Start(0))?;
+
+    if options.show_header {
+        println!("\nISO BMFF Container:");
+        println!("  Format: ISO Base Media File Format");
+    }
+
+    if !options.show_frames {
+        return Ok(());
+    }
 
     println!("\nISO BMFF Boxes:");
 

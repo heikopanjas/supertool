@@ -1,3 +1,4 @@
+use crate::cli::DebugOptions;
 use crate::id3v2_frame::Id3v2Frame;
 use crate::id3v2_tools::*;
 use crate::media_dissector::MediaDissector;
@@ -49,8 +50,8 @@ impl MediaDissector for Id3v23Dissector {
         "ID3v2.3"
     }
 
-    fn dissect(&self, file: &mut File) -> Result<(), Box<dyn std::error::Error>> {
-        dissect_id3v2_3_file(file)
+    fn dissect_with_options(&self, file: &mut File, options: &DebugOptions) -> Result<(), Box<dyn std::error::Error>> {
+        dissect_id3v2_3_file_with_options(file, options)
     }
 
     fn can_handle(&self, header: &[u8]) -> bool {
@@ -68,58 +69,79 @@ impl MediaDissector for Id3v23Dissector {
     }
 }
 
-/// Dissect an ID3v2.3 file from the beginning
-pub fn dissect_id3v2_3_file(file: &mut File) -> Result<(), Box<dyn std::error::Error>> {
+/// Dissect an ID3v2.3 file from the beginning with specific options
+pub fn dissect_id3v2_3_file_with_options(file: &mut File, options: &DebugOptions) -> Result<(), Box<dyn std::error::Error>> {
     // Read and parse ID3v2 header
     if let Some((major, minor, flags, size)) = read_id3v2_header(file)? {
         if major == 3 {
-            println!("\nID3v2 Header Found:");
-            println!("  Version: 2.{}.{}", major, minor);
-            println!("  Flags: 0x{:02X}", flags);
+            if options.show_header {
+                println!("\nID3v2 Header Found:");
+                println!("  Version: 2.{}.{}", major, minor);
+                println!("  Flags: 0x{:02X}", flags);
 
-            // Interpret header flags
-            if flags != 0 {
-                print!("    ");
-                let mut flag_parts = Vec::new();
-                if flags & 0x80 != 0 {
-                    flag_parts.push("unsynchronisation");
+                // Interpret header flags
+                if flags != 0 {
+                    print!("    ");
+                    let mut flag_parts = Vec::new();
+                    if flags & 0x80 != 0 {
+                        flag_parts.push("unsynchronisation");
+                    }
+                    if flags & 0x40 != 0 {
+                        flag_parts.push("extended_header");
+                    }
+                    if flags & 0x20 != 0 {
+                        flag_parts.push("experimental");
+                    }
+                    if !flag_parts.is_empty() {
+                        println!("Active: {}", flag_parts.join(", "));
+                    }
                 }
-                if flags & 0x40 != 0 {
-                    flag_parts.push("extended_header");
-                }
-                if flags & 0x20 != 0 {
-                    flag_parts.push("experimental");
-                }
-                if !flag_parts.is_empty() {
-                    println!("Active: {}", flag_parts.join(", "));
-                }
-            }
 
-            println!("  Tag Size: {} bytes", size);
+                println!("  Tag Size: {} bytes", size);
 
-            if size > 100_000_000 {
-                println!("  WARNING: Extremely large tag size (> 100MB), verify file integrity");
-            } else if size > 50_000_000 {
-                println!("  WARNING: Tag size is very large (> 50MB), likely rich podcast with chapter images");
-            } else if size > 10_000_000 {
-                println!("  INFO: Large tag size (> 10MB), possibly podcast with embedded chapter content");
+                if size > 100_000_000 {
+                    println!("  WARNING: Extremely large tag size (> 100MB), verify file integrity");
+                } else if size > 50_000_000 {
+                    println!("  WARNING: Tag size is very large (> 50MB), likely rich podcast with chapter images");
+                } else if size > 10_000_000 {
+                    println!("  INFO: Large tag size (> 10MB), possibly podcast with embedded chapter content");
+                }
             }
 
             if size > 0 {
                 // Allow very large tags for podcast content with chapter images
-                dissect_id3v2_3(file, size, flags)?;
+                dissect_id3v2_3_with_options(file, size, flags, options)?;
             }
         } else {
-            println!("  Expected ID3v2.3, found version 2.{}", major);
+            if options.show_header {
+                println!("  Expected ID3v2.3, found version 2.{}", major);
+            }
         }
     } else {
-        println!("No ID3v2 header found");
+        if options.show_header {
+            println!("No ID3v2 header found");
+        }
     }
 
     Ok(())
 }
 
-pub fn dissect_id3v2_3(file: &mut File, tag_size: u32, flags: u8) -> Result<(), Box<dyn std::error::Error>> {
+pub fn dissect_id3v2_3_with_options(file: &mut File, tag_size: u32, flags: u8, options: &DebugOptions) -> Result<(), Box<dyn std::error::Error>> {
+    if !options.show_frames {
+        // If not showing frames, skip the tag data entirely
+        let mut buffer = vec![0u8; tag_size as usize];
+        match file.read_exact(&mut buffer) {
+            | Ok(_) => {
+                // Successfully skipped tag data
+            }
+            | Err(e) => {
+                println!("{}", format!("ERROR: Failed to skip tag data: {}", e).bright_red());
+                return Err(Box::new(e));
+            }
+        }
+        return Ok(());
+    }
+
     // Diagnostic output
     println!("\nDissecting ID3v2.3 tag (size: {} bytes, flags: 0x{:02X})...", tag_size, flags);
 

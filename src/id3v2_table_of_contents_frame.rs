@@ -97,12 +97,20 @@ impl fmt::Display for TableOfContentsFrame {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "Element ID: \"{}\"", self.element_id)?;
         writeln!(f, "Flags: Top-level: {}, Ordered: {}", self.top_level, self.ordered)?;
-        writeln!(f, "Child elements ({}):", self.child_count())?;
+
+        // Display child elements on a single line
+        write!(f, "Child elements ({}): ", self.child_count())?;
         for (i, child_id) in self.child_element_ids.iter().enumerate() {
-            writeln!(f, "  [{}] \"{}\"", i + 1, child_id)?;
+            if i > 0 {
+                write!(f, ", ")?;
+            }
+            write!(f, "[{}] \"{}\"", i + 1, child_id)?;
         }
+        writeln!(f)?; // End the line after all child elements
+
         if self.has_sub_frames() {
             writeln!(f, "Sub-frames: {} embedded frame(s)", self.sub_frames.len())?;
+            writeln!(f)?; // Add newline before first embedded frame
             for (i, sub_frame) in self.sub_frames.iter().enumerate() {
                 // Display content with embedded frame formatting helper (same as CHAP)
                 crate::id3v2_chapter_frame::display_embedded_frame_content(f, sub_frame)?;

@@ -60,7 +60,7 @@ This is a Rust project called "supertool" - a versatile media file analysis tool
 
 ## Development Workflow
 1. Make changes following the guidelines above
-2. Test changes with `cargo run -- debug <file>` to test file dissection
+2. Test changes with `cargo run -- debug <file>` to test file dissection (use `--header`, `--frames`, or `--all` options as needed)
 3. Run `cargo build` to ensure compilation
 4. Use `cargo run -- --help` to verify CLI interface
 5. **NEVER commit automatically** - only commit when explicitly requested by the user
@@ -188,3 +188,5 @@ This is a Rust project called "supertool" - a versatile media file analysis tool
 - **Reasoning**: Removed all text truncation logic from text frame display implementations including `TextFrame` (80/100 character limits), `UserTextFrame` (100 character limit), embedded frame fallback display (60 character limit), and main frame fallback display (50 character limit). Text truncation was hiding valuable content, particularly problematic for longer content like episode descriptions, song lyrics, and detailed metadata. Users analyzing media files need to see complete text content to properly understand the metadata. The removal ensures all text frames display their full content regardless of length, improving the tool's utility for comprehensive media analysis.
 - **Renamed CLI command from 'dissect' to 'debug'**: Updated command interface for better semantic clarity
 - **Reasoning**: Renamed the main CLI subcommand from `dissect` to `debug` to better reflect the tool's diagnostic and analysis nature. Updated `cli.rs` command definition, `main.rs` pattern matching, and all documentation references including copilot instructions and development workflow examples. The `debug` command name more accurately represents the tool's purpose as a debugging and diagnostic utility for media file analysis, aligning with common developer tooling conventions.
+- **Added CLI debug output options**: Implemented `--header`, `--frames`, and `--all` flags for controlling debug command output
+- **Reasoning**: Added granular control over debug output with three new CLI options: `--header` shows only ID3v2/ISO BMFF header information, `--frames` shows only frames/boxes content, and `--all` shows both (default behavior when no options specified). Extended `MediaDissector` trait with `dissect_with_options()` method and `DebugOptions` struct to pass output preferences to all dissectors. Updated ID3v2.3, ID3v2.4, ISO BMFF, and unknown dissectors to support the new options. This allows users to focus on specific aspects of file analysis, improving efficiency when only header or frame information is needed. For example, `--header` is useful for quick format verification, while `--frames` is ideal for detailed content analysis without header noise.

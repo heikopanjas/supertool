@@ -1,4 +1,4 @@
-use crate::cli::{Cli, Commands};
+use crate::cli::{Cli, Commands, DebugOptions};
 use clap::Parser;
 use std::fs::File;
 use std::path::PathBuf;
@@ -29,15 +29,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
     match cli.command {
-        | Commands::Debug { file } => {
-            dissect_file(&file)?;
+        | Commands::Debug { file, header, frames, all } => {
+            let options = DebugOptions::from_flags(header, frames, all);
+            dissect_file(&file, &options)?;
         }
     }
 
     Ok(())
 }
 
-fn dissect_file(file_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+fn dissect_file(file_path: &PathBuf, options: &DebugOptions) -> Result<(), Box<dyn std::error::Error>> {
     // Open file
     let mut file = File::open(file_path)?;
 
@@ -49,8 +50,8 @@ fn dissect_file(file_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
     println!("Analyzing file: {}", file_path.display());
     println!("Detected format: {} ({})", dissector.media_type(), dissector.name());
 
-    // Perform dissection
-    dissector.dissect(&mut file)?;
+    // Perform dissection with options
+    dissector.dissect_with_options(&mut file, options)?;
 
     Ok(())
 }
