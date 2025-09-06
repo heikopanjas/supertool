@@ -16,13 +16,13 @@ jobs:
                 include:
                     - os: ubuntu-latest
                       target: x86_64-unknown-linux-gnu
-                      name: supertool-linux-x86_64
+                      name: supertool-${{ github.ref_name }}-linux
                     - os: windows-latest
                       target: x86_64-pc-windows-msvc
-                      name: supertool-windows-x86_64.exe
+                      name: supertool-${{ github.ref_name }}-windows.exe
                     - os: macos-latest
                       target: universal-apple-darwin
-                      name: supertool-macos-universal
+                      name: supertool-${{ github.ref_name }}-macos
         runs-on: ${{ matrix.os }}
         steps:
             - name: Checkout code
@@ -94,9 +94,9 @@ jobs:
               uses: softprops/action-gh-release@v1
               with:
                   files: |
-                      artifacts/supertool-linux-x86_64/supertool-linux-x86_64
-                      artifacts/supertool-windows-x86_64.exe/supertool-windows-x86_64.exe
-                      artifacts/supertool-macos-universal/supertool-macos-universal
+                      artifacts/supertool-${{ github.ref_name }}-linux/supertool-${{ github.ref_name }}-linux
+                      artifacts/supertool-${{ github.ref_name }}-windows.exe/supertool-${{ github.ref_name }}-windows.exe
+                      artifacts/supertool-${{ github.ref_name }}-macos/supertool-${{ github.ref_name }}-macos
                   generate_release_notes: true
                   draft: false
                   prerelease: ${{ contains(github.ref_name, '-') }}
