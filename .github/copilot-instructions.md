@@ -42,8 +42,6 @@ This is a Rust project called "supertool" - a versatile media file analysis tool
 
 ### Dependencies
 - `clap 4.5` with derive features for CLI argument parsing
-- `tokio 1.40` with full features for async runtime
-- `termcolor 1.4` for cross-platform colored terminal output
 - `owo-colors 4.1` for enhanced colored output formatting
 
 ### Technical Implementation
@@ -184,3 +182,7 @@ This is a Rust project called "supertool" - a versatile media file analysis tool
 - **Reasoning**: Modified `display_embedded_frame_content()` function in `id3v2_chapter_frame.rs` to add a blank line (`writeln!(f)?;`) after each embedded frame is displayed. This provides clear visual separation between multiple embedded frames within CHAP and CTOC frames, making the output much more readable when analyzing podcast chapters with multiple embedded frames (titles, descriptions, images, etc.). The enhancement improves the tool's usability for complex media files with rich chapter metadata by ensuring each embedded frame stands out clearly in the diagnostic output.
 - **Fixed embedded frame spacing**: Corrected double newlines between last embedded frame and next top-level frame
 - **Reasoning**: Moved embedded frame separation logic from `display_embedded_frame_content()` to the calling loops in both `ChapterFrame::fmt()` and `TableOfContentsFrame::fmt()`. The loops now use enumeration to add newlines only between embedded frames (not after the last one), preventing double spacing between the last embedded frame of a chapter and the next top-level frame. This creates optimal spacing where embedded frames within a chapter are properly separated, but there's no excessive spacing between chapter boundaries and subsequent top-level frames.
+- **Removed unused tokio dependency**: Eliminated tokio crate as it was not being used anywhere in the codebase
+- **Reasoning**: Comprehensive search revealed no usage of tokio, async/await, or any asynchronous patterns in the entire codebase. The application is purely synchronous, making the tokio dependency unnecessary. Removing it reduces compilation time, binary size, and dependency complexity while maintaining all functionality. Updated dependency documentation to reflect the current minimal dependency set of clap and owo-colors only.
+- **Removed text truncation from all text frames**: Eliminated character limits and truncation in text frame display output
+- **Reasoning**: Removed all text truncation logic from text frame display implementations including `TextFrame` (80/100 character limits), `UserTextFrame` (100 character limit), embedded frame fallback display (60 character limit), and main frame fallback display (50 character limit). Text truncation was hiding valuable content, particularly problematic for longer content like episode descriptions, song lyrics, and detailed metadata. Users analyzing media files need to see complete text content to properly understand the metadata. The removal ensures all text frames display their full content regardless of length, improving the tool's utility for comprehensive media analysis.

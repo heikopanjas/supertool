@@ -191,10 +191,7 @@ impl fmt::Display for Id3v2Frame {
             // Fallback for unparsed content
             if let Some(text) = self.get_text() {
                 if !text.is_empty() {
-                    write!(f, " - Text: \"{}\"", text.chars().take(50).collect::<String>())?;
-                    if text.len() > 50 {
-                        write!(f, "...")?;
-                    }
+                    write!(f, " - Text: \"{}\"", text)?;
                 }
             } else if let Some(url) = self.get_url() {
                 if !url.is_empty() {

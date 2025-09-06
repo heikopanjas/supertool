@@ -163,12 +163,7 @@ pub fn display_embedded_frame_content(f: &mut fmt::Formatter<'_>, frame: &Id3v2F
         // Fallback for unparsed frames
         if let Some(text) = frame.get_text() {
             if !text.is_empty() {
-                let display_text = if text.len() > 60 {
-                    format!("{}...", text.chars().take(60).collect::<String>())
-                } else {
-                    text.to_string()
-                };
-                writeln!(f, "            Text: \"{}\"", display_text)?;
+                writeln!(f, "            Text: \"{}\"", text)?;
             }
         } else if let Some(url) = frame.get_url() {
             writeln!(f, "            URL: \"{}\"", url)?;

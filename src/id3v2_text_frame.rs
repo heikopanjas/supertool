@@ -43,18 +43,10 @@ impl fmt::Display for TextFrame {
         if self.strings.len() > 1 {
             writeln!(f, "Values ({} strings):", self.strings.len())?;
             for (i, string) in self.strings.iter().enumerate() {
-                if string.len() > 80 {
-                    writeln!(f, "  [{}] \"{}...\"", i + 1, string.chars().take(80).collect::<String>())?;
-                } else {
-                    writeln!(f, "  [{}] \"{}\"", i + 1, string)?;
-                }
+                writeln!(f, "  [{}] \"{}\"", i + 1, string)?;
             }
         } else if !self.text.is_empty() {
-            if self.text.len() > 100 {
-                writeln!(f, "Value: \"{}...\"", self.text.chars().take(100).collect::<String>())?;
-            } else {
-                writeln!(f, "Value: \"{}\"", self.text)?;
-            }
+            writeln!(f, "Value: \"{}\"", self.text)?;
         }
         Ok(())
     }
