@@ -4,6 +4,7 @@ use std::path::PathBuf;
 #[derive(Parser)]
 #[command(name = "supertool")]
 #[command(about = "A versatile media file analysis tool")]
+#[command(version)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,

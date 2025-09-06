@@ -1,0 +1,102 @@
+name: Release
+
+on:
+    push:
+        tags:
+            - 'v[0-9]+.[0-9]+.[0-9]+*' # Matches v1.0.0, v1.0.0-alpha, v1.0.0-beta.1, etc.
+
+env:
+    CARGO_TERM_COLOR: always
+
+jobs:
+    build:
+        name: Build Release Binaries
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Install Rust toolchain
+              uses: dtolnay/rust-toolchain@stable
+              with:
+                  targets: |
+                      x86_64-unknown-linux-gnu
+                      x86_64-apple-darwin
+                      aarch64-apple-darwin
+                      x86_64-pc-windows-gnu
+                      aarch64-pc-windows-gnullvm
+
+            - name: Install cross-compilation dependencies
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y gcc-mingw-w64-x86-64
+
+            - name: Cache dependencies
+              uses: actions/cache@v3
+              with:
+                  path: |
+                      ~/.cargo/registry
+                      ~/.cargo/git
+                      target
+                  key: ubuntu-cross-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+            - name: Build Linux binary
+              run: cargo build --release --target x86_64-unknown-linux-gnu
+
+            - name: Build macOS Intel binary
+              run: cargo build --release --target x86_64-apple-darwin
+
+            - name: Build macOS Apple Silicon binary
+              run: cargo build --release --target aarch64-apple-darwin
+
+            - name: Build Windows binary
+              run: cargo build --release --target x86_64-pc-windows-gnu
+
+            - name: Build Windows ARM binary
+              run: cargo build --release --target aarch64-pc-windows-gnullvm
+
+            - name: Prepare release artifacts
+              run: |
+                  mkdir -p release
+                  cp target/x86_64-unknown-linux-gnu/release/supertool release/supertool-linux-x86_64
+                  cp target/x86_64-apple-darwin/release/supertool release/supertool-macos-x86_64
+                  cp target/aarch64-apple-darwin/release/supertool release/supertool-macos-aarch64
+                  cp target/x86_64-pc-windows-gnu/release/supertool.exe release/supertool-windows-x86_64.exe
+                  cp target/aarch64-pc-windows-gnullvm/release/supertool.exe release/supertool-windows-aarch64.exe
+
+            - name: Upload release artifacts
+              uses: actions/upload-artifact@v3
+              with:
+                  name: release-binaries
+                  path: release/*
+
+    release:
+        name: Create Release
+        needs: build
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Download release artifacts
+              uses: actions/download-artifact@v3
+              with:
+                  name: release-binaries
+                  path: release
+
+            - name: Create release
+              uses: softprops/action-gh-release@v1
+              with:
+                  files: |
+                      release/supertool-linux-x86_64
+                      release/supertool-macos-x86_64
+                      release/supertool-macos-aarch64
+                      release/supertool-windows-x86_64.exe
+                      release/supertool-windows-aarch64.exe
+                  generate_release_notes: true
+                  draft: false
+                  prerelease: ${{ contains(github.ref_name, '-') }}
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
