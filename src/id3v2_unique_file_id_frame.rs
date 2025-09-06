@@ -2,6 +2,7 @@
 ///
 /// Structure: Owner identifier + Identifier
 use crate::id3v2_text_encoding::decode_iso88591_string;
+use std::fmt;
 
 #[derive(Debug, Clone)]
 pub struct UniqueFileIdFrame {
@@ -35,5 +36,13 @@ impl UniqueFileIdFrame {
         }
 
         Ok(UniqueFileIdFrame { owner_identifier, identifier })
+    }
+}
+
+impl fmt::Display for UniqueFileIdFrame {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "Owner: \"{}\"", self.owner_identifier)?;
+        writeln!(f, "Identifier: {} bytes", self.identifier.len())?;
+        Ok(())
     }
 }

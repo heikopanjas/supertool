@@ -4,6 +4,7 @@ use crate::id3v2_frame::Id3v2Frame;
 /// Structure: Element ID + TOC flags + Entry count + Child element IDs + Sub-frames
 /// Part of ID3v2 Chapter Frame Addendum specification
 use crate::id3v2_text_encoding::decode_iso88591_string;
+use std::fmt;
 
 #[derive(Debug, Clone)]
 pub struct TableOfContentsFrame {
@@ -144,5 +145,24 @@ impl TableOfContentsFrame {
         }
 
         embedded_frames
+    }
+}
+
+impl fmt::Display for TableOfContentsFrame {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "Element ID: \"{}\"", self.element_id)?;
+        writeln!(f, "Flags: Top-level: {}, Ordered: {}", self.top_level, self.ordered)?;
+        writeln!(f, "Child elements ({}):", self.child_count())?;
+        for (i, child_id) in self.child_element_ids.iter().enumerate() {
+            writeln!(f, "  [{}] \"{}\"", i + 1, child_id)?;
+        }
+        if self.has_sub_frames() {
+            writeln!(f, "Sub-frames: {} embedded frame(s)", self.sub_frames.len())?;
+            for sub_frame in &self.sub_frames {
+                // Display content with embedded frame formatting helper (same as CHAP)
+                crate::id3v2_chapter_frame::display_embedded_frame_content(f, sub_frame)?;
+            }
+        }
+        Ok(())
     }
 }

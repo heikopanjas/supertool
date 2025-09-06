@@ -188,7 +188,7 @@ pub fn dissect_id3v2_3(file: &mut File, tag_size: u32, flags: u8) -> Result<(), 
 
             stdout.set_color(ColorSpec::new().set_fg(Some(Color::Cyan)))?;
             writeln!(&mut stdout, "  Extended header size: {} bytes", extended_size)?;
-            writeln!(&mut stdout, "  Frame data starts at position: {}", frame_start)?;
+            writeln!(&mut stdout, "  Frame data starts at offset: {}", frame_start)?;
             stdout.reset()?;
 
             if frame_start > buffer.len() {
@@ -219,15 +219,10 @@ pub fn dissect_id3v2_3(file: &mut File, tag_size: u32, flags: u8) -> Result<(), 
         let frame_id_bytes = &buffer[pos..pos + 4];
         let frame_id = std::str::from_utf8(frame_id_bytes).unwrap_or("????");
 
-        // Diagnostic output for frame header
-        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Cyan)))?;
-        writeln!(&mut stdout, "  Frame at position {}: ID bytes = {:02X?} (\"{}\")", pos, frame_id_bytes, frame_id)?;
-        stdout.reset()?;
-
         // Stop if we hit padding (null bytes)
         if frame_id.starts_with('\0') {
             stdout.set_color(ColorSpec::new().set_fg(Some(Color::Blue)))?;
-            writeln!(&mut stdout, "  Reached padding section at position {}", pos)?;
+            writeln!(&mut stdout, "  Reached padding section at offset {}", pos)?;
             stdout.reset()?;
             break;
         }
@@ -237,18 +232,24 @@ pub fn dissect_id3v2_3(file: &mut File, tag_size: u32, flags: u8) -> Result<(), 
             let frame_size = u32::from_be_bytes([buffer[pos + 4], buffer[pos + 5], buffer[pos + 6], buffer[pos + 7]]);
             let frame_flags = u16::from_be_bytes([buffer[pos + 8], buffer[pos + 9]]);
 
-            // Diagnostic for frame size
+            // Diagnostic output for frame header
             stdout.set_color(ColorSpec::new().set_fg(Some(Color::Cyan)))?;
             writeln!(
                 &mut stdout,
-                "    Size bytes: [{:02X}, {:02X}, {:02X}, {:02X}] = {} bytes",
+                "  Frame offset {}, ID bytes = [0x{:02X}, 0x{:02X}, 0x{:02X}, 0x{:02X}] (\"{}\"), Size bytes: [0x{:02X}, 0x{:02X}, 0x{:02X}, 0x{:02X}] = {} bytes, Flags: 0x{:04X}",
+                pos,
+                frame_id_bytes[0],
+                frame_id_bytes[1],
+                frame_id_bytes[2],
+                frame_id_bytes[3],
+                frame_id,
                 buffer[pos + 4],
                 buffer[pos + 5],
                 buffer[pos + 6],
                 buffer[pos + 7],
-                frame_size
+                frame_size,
+                frame_flags
             )?;
-            writeln!(&mut stdout, "    Flags: 0x{:04X}", frame_flags)?;
             stdout.reset()?;
 
             // Validate frame ID for ID3v2.3

@@ -2,6 +2,7 @@
 ///
 /// Structure: Text encoding + MIME type + Picture type + Description + Picture data
 use crate::id3v2_text_encoding::{TextEncoding, decode_iso88591_string, decode_text_with_encoding_simple, get_terminator_length, is_null_terminator};
+use std::fmt;
 
 #[derive(Debug, Clone)]
 pub struct AttachedPictureFrame {
@@ -90,5 +91,18 @@ impl AttachedPictureFrame {
             | 0x14 => "Publisher/Studio logotype",
             | _ => "Unknown",
         }
+    }
+}
+
+impl fmt::Display for AttachedPictureFrame {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "Encoding: {}", self.encoding)?;
+        writeln!(f, "MIME type: {}", self.mime_type)?;
+        writeln!(f, "Picture type: {} ({})", self.picture_type, self.picture_type_description())?;
+        if !self.description.is_empty() {
+            writeln!(f, "Description: \"{}\"", self.description)?;
+        }
+        writeln!(f, "Data size: {} bytes", self.picture_data.len())?;
+        Ok(())
     }
 }

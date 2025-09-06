@@ -2,6 +2,7 @@
 ///
 /// Structure: Text encoding + Language + Short description + Full text
 use crate::id3v2_text_encoding::{TextEncoding, split_terminated_text};
+use std::fmt;
 
 #[derive(Debug, Clone)]
 pub struct CommentFrame {
@@ -28,5 +29,17 @@ impl CommentFrame {
         let (description, text) = split_terminated_text(text_data, encoding)?;
 
         Ok(CommentFrame { encoding, language, description, text })
+    }
+}
+
+impl fmt::Display for CommentFrame {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "Encoding: {}", self.encoding)?;
+        writeln!(f, "Language: \"{}\"", self.language)?;
+        if !self.description.is_empty() {
+            writeln!(f, "Description: \"{}\"", self.description)?;
+        }
+        writeln!(f, "Text: \"{}\"", self.text)?;
+        Ok(())
     }
 }

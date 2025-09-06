@@ -3,6 +3,7 @@
 /// Structure: Text encoding + Information
 /// Examples: TIT2, TALB, TPE1, TPE2, TCON, TYER, etc.
 use crate::id3v2_text_encoding::{TextEncoding, decode_text_with_encoding};
+use std::fmt;
 
 #[derive(Debug, Clone)]
 pub struct TextFrame {
@@ -33,5 +34,28 @@ impl TextFrame {
     /// Get the first (primary) text string
     pub fn primary_text(&self) -> &str {
         &self.text
+    }
+}
+
+impl fmt::Display for TextFrame {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "Encoding: {}", self.encoding)?;
+        if self.strings.len() > 1 {
+            writeln!(f, "Values ({} strings):", self.strings.len())?;
+            for (i, string) in self.strings.iter().enumerate() {
+                if string.len() > 80 {
+                    writeln!(f, "  [{}] \"{}...\"", i + 1, string.chars().take(80).collect::<String>())?;
+                } else {
+                    writeln!(f, "  [{}] \"{}\"", i + 1, string)?;
+                }
+            }
+        } else if !self.text.is_empty() {
+            if self.text.len() > 100 {
+                writeln!(f, "Value: \"{}...\"", self.text.chars().take(100).collect::<String>())?;
+            } else {
+                writeln!(f, "Value: \"{}\"", self.text)?;
+            }
+        }
+        Ok(())
     }
 }

@@ -4,6 +4,19 @@ use crate::id3v2_frame::Id3v2Frame;
 /// Structure: Element ID + Start time + End time + Start offset + End offset + Sub-frames
 /// Part of ID3v2 Chapter Frame Addendum specification
 use crate::id3v2_text_encoding::decode_iso88591_string;
+use crate::id3v2_tools::get_frame_description;
+use std::fmt;
+
+/// Format milliseconds as hh:mm:ss.ms
+fn format_timestamp(ms: u32) -> String {
+    let total_seconds = ms / 1000;
+    let milliseconds = ms % 1000;
+    let hours = total_seconds / 3600;
+    let minutes = (total_seconds % 3600) / 60;
+    let seconds = total_seconds % 60;
+
+    format!("{:02}:{:02}:{:02}.{:03}", hours, minutes, seconds, milliseconds)
+}
 
 #[derive(Debug, Clone)]
 pub struct ChapterFrame {
@@ -147,4 +160,66 @@ impl ChapterFrame {
 
         embedded_frames
     }
+}
+
+impl fmt::Display for ChapterFrame {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "Element ID: \"{}\"", self.element_id)?;
+        let start_formatted = format_timestamp(self.start_time);
+        let end_formatted = format_timestamp(self.end_time);
+        let duration_formatted = format_timestamp(self.duration());
+        writeln!(f, "Time: {} - {} (duration: {})", start_formatted, end_formatted, duration_formatted)?;
+        if self.has_byte_offsets() {
+            writeln!(f, "Byte offsets: {} - {}", self.start_offset, self.end_offset)?;
+        }
+        if !self.sub_frames.is_empty() {
+            writeln!(f, "Sub-frames: {} embedded frame(s)", self.sub_frames.len())?;
+            for sub_frame in &self.sub_frames {
+                // Display content with embedded frame formatting helper
+                display_embedded_frame_content(f, sub_frame)?;
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Helper function to display embedded frame content with proper indentation matching top-level format
+pub fn display_embedded_frame_content(f: &mut fmt::Formatter<'_>, frame: &Id3v2Frame) -> fmt::Result {
+    // Show frame header information similar to top-level frames (but without offset since embedded frames don't have file offsets)
+    let id_bytes = frame.id.as_bytes();
+    writeln!(
+        f,
+        "          Frame ID bytes = [0x{:02X}, 0x{:02X}, 0x{:02X}, 0x{:02X}] (\"{}\"), Size: {} bytes, Flags: 0x{:04X}",
+        id_bytes[0], id_bytes[1], id_bytes[2], id_bytes[3], frame.id, frame.size, frame.flags
+    )?;
+
+    // Format embedded frames like top-level frames but with embedded indentation
+    writeln!(f, "          Frame: {} ({}) - Size: {} bytes", frame.id, get_frame_description(&frame.id), frame.size)?;
+
+    if let Some(content) = &frame.content {
+        // Add content with additional indentation (14 spaces total: 10 for embedded + 4 for content)
+        let content_str = format!("{}", content);
+        for line in content_str.lines() {
+            if !line.is_empty() {
+                writeln!(f, "              {}", line)?;
+            } else {
+                writeln!(f)?;
+            }
+        }
+    } else {
+        // Fallback for unparsed frames
+        if let Some(text) = frame.get_text() {
+            if !text.is_empty() {
+                let display_text = if text.len() > 60 {
+                    format!("{}...", text.chars().take(60).collect::<String>())
+                } else {
+                    text.to_string()
+                };
+                writeln!(f, "              Text: \"{}\"", display_text)?;
+            }
+        } else if let Some(url) = frame.get_url() {
+            writeln!(f, "              URL: \"{}\"", url)?;
+        }
+    }
+    Ok(())
 }

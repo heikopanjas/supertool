@@ -2,6 +2,7 @@
 ///
 /// Structure: Text encoding + Description + URL
 use crate::id3v2_text_encoding::{TextEncoding, decode_iso88591_string, decode_text_with_encoding_simple, find_text_terminator};
+use std::fmt;
 
 #[derive(Debug, Clone)]
 pub struct UserUrlFrame {
@@ -32,5 +33,14 @@ impl UserUrlFrame {
         let url = decode_iso88591_string(url_bytes);
 
         Ok(UserUrlFrame { encoding, description, url })
+    }
+}
+
+impl fmt::Display for UserUrlFrame {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "Encoding: {}", self.encoding)?;
+        writeln!(f, "Description: \"{}\"", self.description)?;
+        writeln!(f, "URL: \"{}\"", self.url)?;
+        Ok(())
     }
 }

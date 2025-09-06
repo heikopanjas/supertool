@@ -2,6 +2,7 @@
 ///
 /// Structure: Text encoding + Description + Value
 use crate::id3v2_text_encoding::{TextEncoding, split_terminated_text};
+use std::fmt;
 
 #[derive(Debug, Clone)]
 pub struct UserTextFrame {
@@ -26,5 +27,18 @@ impl UserTextFrame {
         let (description, value) = split_terminated_text(text_data, encoding)?;
 
         Ok(UserTextFrame { encoding, description, value })
+    }
+}
+
+impl fmt::Display for UserTextFrame {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "Encoding: {}", self.encoding)?;
+        writeln!(f, "Description: \"{}\"", self.description)?;
+        if self.value.len() > 100 {
+            writeln!(f, "Value: \"{}...\"", self.value.chars().take(100).collect::<String>())?;
+        } else {
+            writeln!(f, "Value: \"{}\"", self.value)?;
+        }
+        Ok(())
     }
 }

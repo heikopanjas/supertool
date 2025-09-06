@@ -3,6 +3,7 @@
 /// Structure: URL (text string)
 /// Examples: WCOM, WCOP, WOAF, WOAR, WOAS, WORS, WPAY, WPUB
 use crate::id3v2_text_encoding::decode_iso88591_string;
+use std::fmt;
 
 #[derive(Debug, Clone)]
 pub struct UrlFrame {
@@ -15,5 +16,12 @@ impl UrlFrame {
         // URL frames are always encoded in ISO-8859-1
         let url = decode_iso88591_string(data);
         Ok(UrlFrame { url })
+    }
+}
+
+impl fmt::Display for UrlFrame {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "URL: \"{}\"", self.url)?;
+        Ok(())
     }
 }
