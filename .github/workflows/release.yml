@@ -11,7 +11,19 @@ env:
 jobs:
     build:
         name: Build Release Binaries
-        runs-on: ubuntu-latest
+        strategy:
+            matrix:
+                include:
+                    - os: ubuntu-latest
+                      target: x86_64-unknown-linux-gnu
+                      name: supertool-linux-x86_64
+                    - os: windows-latest
+                      target: x86_64-pc-windows-msvc
+                      name: supertool-windows-x86_64.exe
+                    - os: macos-latest
+                      target: universal-apple-darwin
+                      name: supertool-macos-universal
+        runs-on: ${{ matrix.os }}
         steps:
             - name: Checkout code
               uses: actions/checkout@v4
@@ -20,11 +32,8 @@ jobs:
               uses: dtolnay/rust-toolchain@stable
               with:
                   targets: |
-                      x86_64-unknown-linux-gnu
                       x86_64-apple-darwin
                       aarch64-apple-darwin
-                      x86_64-pc-windows-gnu
-                      aarch64-pc-windows-gnullvm
 
             - name: Cache dependencies
               uses: actions/cache@v4
@@ -33,30 +42,38 @@ jobs:
                       ~/.cargo/registry
                       ~/.cargo/git
                       target
-                  key: ubuntu-cross-cargo-${{ hashFiles('**/Cargo.lock') }}
+                  key: ${{ matrix.os }}-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-            - name: Build all targets
+            - name: Build binary (Linux/Windows)
+              if: matrix.target != 'universal-apple-darwin'
+              run: cargo build --release --target ${{ matrix.target }}
+
+            - name: Build universal binary (macOS)
+              if: matrix.target == 'universal-apple-darwin'
               run: |
-                  cargo build --release --target x86_64-unknown-linux-gnu
                   cargo build --release --target x86_64-apple-darwin
                   cargo build --release --target aarch64-apple-darwin
-                  cargo build --release --target x86_64-pc-windows-gnu
-                  cargo build --release --target aarch64-pc-windows-gnullvm
+                  lipo -create -output supertool-universal \
+                      target/x86_64-apple-darwin/release/supertool \
+                      target/aarch64-apple-darwin/release/supertool
 
-            - name: Prepare release artifacts
-              run: |
-                  mkdir -p release
-                  cp target/x86_64-unknown-linux-gnu/release/supertool release/supertool-linux-x86_64
-                  cp target/x86_64-apple-darwin/release/supertool release/supertool-macos-x86_64
-                  cp target/aarch64-apple-darwin/release/supertool release/supertool-macos-aarch64
-                  cp target/x86_64-pc-windows-gnu/release/supertool.exe release/supertool-windows-x86_64.exe
-                  cp target/aarch64-pc-windows-gnullvm/release/supertool.exe release/supertool-windows-aarch64.exe
+            - name: Prepare binary (Linux)
+              if: matrix.os == 'ubuntu-latest'
+              run: cp target/${{ matrix.target }}/release/supertool ${{ matrix.name }}
 
-            - name: Upload release artifacts
+            - name: Prepare binary (Windows)
+              if: matrix.os == 'windows-latest'
+              run: cp target/${{ matrix.target }}/release/supertool.exe ${{ matrix.name }}
+
+            - name: Prepare binary (macOS Universal)
+              if: matrix.target == 'universal-apple-darwin'
+              run: cp supertool-universal ${{ matrix.name }}
+
+            - name: Upload binary artifact
               uses: actions/upload-artifact@v4
               with:
-                  name: release-binaries
-                  path: release/*
+                  name: ${{ matrix.name }}
+                  path: ${{ matrix.name }}
 
     release:
         name: Create Release
@@ -68,21 +85,18 @@ jobs:
             - name: Checkout code
               uses: actions/checkout@v4
 
-            - name: Download release artifacts
+            - name: Download all artifacts
               uses: actions/download-artifact@v4
               with:
-                  name: release-binaries
-                  path: release
+                  path: artifacts
 
             - name: Create release
               uses: softprops/action-gh-release@v1
               with:
                   files: |
-                      release/supertool-linux-x86_64
-                      release/supertool-macos-x86_64
-                      release/supertool-macos-aarch64
-                      release/supertool-windows-x86_64.exe
-                      release/supertool-windows-aarch64.exe
+                      artifacts/supertool-linux-x86_64/supertool-linux-x86_64
+                      artifacts/supertool-windows-x86_64.exe/supertool-windows-x86_64.exe
+                      artifacts/supertool-macos-universal/supertool-macos-universal
                   generate_release_notes: true
                   draft: false
                   prerelease: ${{ contains(github.ref_name, '-') }}
