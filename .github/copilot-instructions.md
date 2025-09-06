@@ -50,7 +50,7 @@ This is a Rust project called "supertool" - a versatile media file analysis tool
 - **ID3v2 Support**: Specification-compliant parsing for ID3v2.3 and ID3v2.4 with proper unsynchronization handling, frame flag interpretation, and UTF-16 text support
 - **ISO BMFF Support**: Box header parsing with size and type detection for MP4 containers
 - **File Format Detection**: Automatic detection based on file headers (ID3 tags, MPEG sync patterns, ftyp boxes)
-- **CLI Interface**: Subcommand-based interface with `dissect` command for file analysis
+- **CLI Interface**: Subcommand-based interface with `debug` command for file analysis
 - **Cross-Platform**: Windows, macOS, and Linux compatibility with proper terminal color support
 
 ### Documentation
@@ -60,7 +60,7 @@ This is a Rust project called "supertool" - a versatile media file analysis tool
 
 ## Development Workflow
 1. Make changes following the guidelines above
-2. Test changes with `cargo run -- dissect <file>` to test file dissection
+2. Test changes with `cargo run -- debug <file>` to test file dissection
 3. Run `cargo build` to ensure compilation
 4. Use `cargo run -- --help` to verify CLI interface
 5. **NEVER commit automatically** - only commit when explicitly requested by the user
@@ -186,3 +186,5 @@ This is a Rust project called "supertool" - a versatile media file analysis tool
 - **Reasoning**: Comprehensive search revealed no usage of tokio, async/await, or any asynchronous patterns in the entire codebase. The application is purely synchronous, making the tokio dependency unnecessary. Removing it reduces compilation time, binary size, and dependency complexity while maintaining all functionality. Updated dependency documentation to reflect the current minimal dependency set of clap and owo-colors only.
 - **Removed text truncation from all text frames**: Eliminated character limits and truncation in text frame display output
 - **Reasoning**: Removed all text truncation logic from text frame display implementations including `TextFrame` (80/100 character limits), `UserTextFrame` (100 character limit), embedded frame fallback display (60 character limit), and main frame fallback display (50 character limit). Text truncation was hiding valuable content, particularly problematic for longer content like episode descriptions, song lyrics, and detailed metadata. Users analyzing media files need to see complete text content to properly understand the metadata. The removal ensures all text frames display their full content regardless of length, improving the tool's utility for comprehensive media analysis.
+- **Renamed CLI command from 'dissect' to 'debug'**: Updated command interface for better semantic clarity
+- **Reasoning**: Renamed the main CLI subcommand from `dissect` to `debug` to better reflect the tool's diagnostic and analysis nature. Updated `cli.rs` command definition, `main.rs` pattern matching, and all documentation references including copilot instructions and development workflow examples. The `debug` command name more accurately represents the tool's purpose as a debugging and diagnostic utility for media file analysis, aligning with common developer tooling conventions.

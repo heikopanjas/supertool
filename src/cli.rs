@@ -11,8 +11,8 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
-    /// Dissect and analyze media files (ID3v2/MP3, ISO BMFF/MP4)
-    Dissect {
+    /// Debug and analyze media files (ID3v2/MP3, ISO BMFF/MP4)
+    Debug {
         /// Path to the media file to analyze
         file: PathBuf,
     },
