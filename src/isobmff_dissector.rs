@@ -1,7 +1,6 @@
 use crate::media_dissector::MediaDissector;
 use std::fs::File;
-use std::io::{Read, Seek, SeekFrom, Write};
-use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
+use std::io::{Read, Seek, SeekFrom};
 
 /// ISO Base Media File Format dissector for MP4 files
 pub struct IsobmffDissector;
@@ -30,14 +29,10 @@ impl MediaDissector for IsobmffDissector {
 }
 
 pub fn dissect_isobmff(file: &mut File) -> Result<(), Box<dyn std::error::Error>> {
-    let mut stdout = StandardStream::stdout(ColorChoice::Auto);
-
     // Seek back to beginning
     file.seek(SeekFrom::Start(0))?;
 
-    stdout.set_color(ColorSpec::new().set_fg(Some(Color::Yellow)).set_bold(true))?;
-    writeln!(&mut stdout, "\nISO BMFF Boxes:")?;
-    stdout.reset()?;
+    println!("\nISO BMFF Boxes:");
 
     let mut pos = 0u64;
 
@@ -57,7 +52,7 @@ pub fn dissect_isobmff(file: &mut File) -> Result<(), Box<dyn std::error::Error>
             break;
         }
 
-        writeln!(&mut stdout, "  Box: {} (size: {} bytes)", box_type, box_size)?;
+        println!("  Box: {} (size: {} bytes)", box_type, box_size);
 
         pos += box_size;
 

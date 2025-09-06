@@ -1,7 +1,6 @@
 use std::fs::File;
 use std::io::Write;
 use std::io::{Read, Seek, SeekFrom};
-use termcolor::{ColorChoice, StandardStream};
 
 /// ID3v2 header information: (major_version, minor_version, flags, size)
 pub type Id3v2Header = (u8, u8, u8, u32);
@@ -140,9 +139,6 @@ pub fn detect_mpeg_sync(header: &[u8]) -> bool {
 
 /// Read and parse ID3v2 header, returning version info and tag size
 pub fn read_id3v2_header(file: &mut File) -> Result<Option<Id3v2Header>, Box<dyn std::error::Error>> {
-    use std::io::Write;
-    use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
-
     // Seek to beginning and read ID3v2 header
     file.seek(SeekFrom::Start(0))?;
     let mut id3_header = [0u8; 10];
@@ -160,43 +156,33 @@ pub fn read_id3v2_header(file: &mut File) -> Result<Option<Id3v2Header>, Box<dyn
     let flags = id3_header[5];
 
     // Add diagnostic output for raw header bytes
-    let mut stdout = StandardStream::stdout(ColorChoice::Auto);
-    stdout.set_color(ColorSpec::new().set_fg(Some(Color::Magenta)))?;
-    writeln!(&mut stdout, "  Raw header bytes: {:02X?}", id3_header)?;
-    stdout.reset()?;
+    println!("  Raw header bytes: {:02X?}", id3_header);
 
     // Calculate tag size (synchsafe integer)
     let size = decode_synchsafe_int(&id3_header[6..10]);
 
     // Add diagnostic for size bytes and calculation
-    stdout.set_color(ColorSpec::new().set_fg(Some(Color::Cyan)))?;
-    writeln!(&mut stdout, "  Size bytes: [0x{:02X}, 0x{:02X}, 0x{:02X}, 0x{:02X}]", id3_header[6], id3_header[7], id3_header[8], id3_header[9])?;
-    writeln!(
-        &mut stdout,
+    println!("  Size bytes: [0x{:02X}, 0x{:02X}, 0x{:02X}, 0x{:02X}]", id3_header[6], id3_header[7], id3_header[8], id3_header[9]);
+    println!(
         "  Size calculation: ({} << 21) | ({} << 14) | ({} << 7) | {} = {}",
         id3_header[6] & 0x7F,
         id3_header[7] & 0x7F,
         id3_header[8] & 0x7F,
         id3_header[9] & 0x7F,
         size
-    )?;
-    stdout.reset()?;
+    );
 
     // Validate synchsafe format (each byte should have MSB = 0)
     let mut synchsafe_violation = false;
     for (i, &byte) in id3_header[6..10].iter().enumerate() {
         if byte & 0x80 != 0 {
-            stdout.set_color(ColorSpec::new().set_fg(Some(Color::Red)).set_bold(true))?;
-            writeln!(&mut stdout, "  WARNING: Size byte {} (0x{:02X}) violates synchsafe format (MSB set)!", i, byte)?;
-            stdout.reset()?;
+            println!("  WARNING: Size byte {} (0x{:02X}) violates synchsafe format (MSB set)!", i, byte);
             synchsafe_violation = true;
         }
     }
 
     if synchsafe_violation {
-        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Red)).set_bold(true))?;
-        writeln!(&mut stdout, "  ERROR: Invalid synchsafe format detected in size field")?;
-        stdout.reset()?;
+        println!("  ERROR: Invalid synchsafe format detected in size field");
     }
 
     Ok(Some((version_major, version_minor, flags, size)))
@@ -228,92 +214,6 @@ pub fn remove_unsynchronization(data: &[u8]) -> Vec<u8> {
     }
 
     result
-}
-
-/// Interpret ID3v2.3 frame flags and display them
-pub fn interpret_id3v2_3_frame_flags(flags: u16) -> Result<(), Box<dyn std::error::Error>> {
-    let mut stdout = StandardStream::stdout(ColorChoice::Auto);
-
-    if flags != 0 {
-        write!(&mut stdout, ", flags: ")?;
-        let mut flag_parts = Vec::new();
-
-        // Status message flags (first byte)
-        if flags & 0x8000 != 0 {
-            flag_parts.push("tag_alter_preserve");
-        }
-        if flags & 0x4000 != 0 {
-            flag_parts.push("file_alter_preserve");
-        }
-        if flags & 0x2000 != 0 {
-            flag_parts.push("read_only");
-        }
-
-        // Format description flags (second byte)
-        if flags & 0x0080 != 0 {
-            flag_parts.push("compressed");
-        }
-        if flags & 0x0040 != 0 {
-            flag_parts.push("encrypted");
-        }
-        if flags & 0x0020 != 0 {
-            flag_parts.push("grouped");
-        }
-
-        if flag_parts.is_empty() {
-            write!(&mut stdout, "0x{:04X}", flags)?;
-        } else {
-            write!(&mut stdout, "{}", flag_parts.join("|"))?;
-        }
-    }
-
-    Ok(())
-}
-
-/// Interpret ID3v2.4 frame flags and display them
-pub fn interpret_id3v2_4_frame_flags(flags: u16) -> Result<(), Box<dyn std::error::Error>> {
-    let mut stdout = StandardStream::stdout(ColorChoice::Auto);
-
-    if flags != 0 {
-        write!(&mut stdout, ", flags: ")?;
-        let mut flag_parts = Vec::new();
-
-        // Status message flags (first byte)
-        if flags & 0x4000 != 0 {
-            flag_parts.push("tag_alter_preserve");
-        }
-        if flags & 0x2000 != 0 {
-            flag_parts.push("file_alter_preserve");
-        }
-        if flags & 0x1000 != 0 {
-            flag_parts.push("read_only");
-        }
-
-        // Format description flags (second byte)
-        if flags & 0x0040 != 0 {
-            flag_parts.push("grouped");
-        }
-        if flags & 0x0008 != 0 {
-            flag_parts.push("compressed");
-        }
-        if flags & 0x0004 != 0 {
-            flag_parts.push("encrypted");
-        }
-        if flags & 0x0002 != 0 {
-            flag_parts.push("unsynchronised");
-        }
-        if flags & 0x0001 != 0 {
-            flag_parts.push("data_length_indicator");
-        }
-
-        if flag_parts.is_empty() {
-            write!(&mut stdout, "0x{:04X}", flags)?;
-        } else {
-            write!(&mut stdout, "{}", flag_parts.join("|"))?;
-        }
-    }
-
-    Ok(())
 }
 
 /// Check if a frame ID is valid for ID3v2.3
@@ -396,8 +296,8 @@ pub fn parse_embedded_frames(frame_data: &[u8], version_major: u8) -> Vec<crate:
         // Extract frame data
         let data = frame_data[pos + 10..pos + 10 + frame_size as usize].to_vec();
 
-        // Create the embedded frame
-        let mut embedded_frame = crate::id3v2_frame::Id3v2Frame::new(frame_id, frame_size, frame_flags, data);
+        // Create the embedded frame with relative offset within the parent frame
+        let mut embedded_frame = crate::id3v2_frame::Id3v2Frame::new_with_offset(frame_id, frame_size, frame_flags, pos, data);
 
         // Parse the embedded frame content for rich display
         if let Err(_e) = embedded_frame.parse_content(version_major) {
@@ -411,4 +311,53 @@ pub fn parse_embedded_frames(frame_data: &[u8], version_major: u8) -> Vec<crate:
     }
 
     embedded_frames
+}
+
+/// Display frame header information with customizable indentation
+/// This function provides unified frame header display for both top-level and embedded frames
+pub fn display_frame_header(output: &mut dyn Write, frame: &crate::id3v2_frame::Id3v2Frame, indentation: &str) -> std::io::Result<()> {
+    // Extract the individual bytes from the frame ID for diagnostic display
+    let id_bytes = frame.id.as_bytes();
+    let size_bytes = frame.size.to_be_bytes();
+
+    // Display frame header information in the same format as top-level frames
+    if let Some(offset) = frame.offset {
+        writeln!(
+            output,
+            "{}Frame offset 0x{:08X}, ID bytes = [0x{:02X}, 0x{:02X}, 0x{:02X}, 0x{:02X}] (\"{}\"), Size bytes: [0x{:02X}, 0x{:02X}, 0x{:02X}, 0x{:02X}] = {} bytes, Flags: 0x{:04X}",
+            indentation,
+            offset,
+            id_bytes[0],
+            id_bytes[1],
+            id_bytes[2],
+            id_bytes[3],
+            frame.id,
+            size_bytes[0],
+            size_bytes[1],
+            size_bytes[2],
+            size_bytes[3],
+            frame.size,
+            frame.flags
+        )?;
+    } else {
+        // Fallback for frames without offset information
+        writeln!(
+            output,
+            "{}ID bytes = [0x{:02X}, 0x{:02X}, 0x{:02X}, 0x{:02X}] (\"{}\"), Size bytes: [0x{:02X}, 0x{:02X}, 0x{:02X}, 0x{:02X}] = {} bytes, Flags: 0x{:04X}",
+            indentation,
+            id_bytes[0],
+            id_bytes[1],
+            id_bytes[2],
+            id_bytes[3],
+            frame.id,
+            size_bytes[0],
+            size_bytes[1],
+            size_bytes[2],
+            size_bytes[3],
+            frame.size,
+            frame.flags
+        )?;
+    }
+
+    Ok(())
 }

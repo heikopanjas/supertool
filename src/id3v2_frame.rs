@@ -61,6 +61,8 @@ pub struct Id3v2Frame {
     pub size: u32,
     /// Frame flags (meaning varies by ID3v2 version)
     pub flags: u16,
+    /// Frame offset in the file (for top-level frames) or within parent frame (for embedded frames)
+    pub offset: Option<usize>,
     /// Raw frame data content
     pub data: Vec<u8>,
     /// Parsed frame content (if successfully parsed)
@@ -72,7 +74,12 @@ pub struct Id3v2Frame {
 impl Id3v2Frame {
     /// Create a new ID3v2 frame with raw data only
     pub fn new(id: String, size: u32, flags: u16, data: Vec<u8>) -> Self {
-        Self { id, size, flags, data, content: None, embedded_frames: None }
+        Self { id, size, flags, offset: None, data, content: None, embedded_frames: None }
+    }
+
+    /// Create a new ID3v2 frame with offset information
+    pub fn new_with_offset(id: String, size: u32, flags: u16, offset: usize, data: Vec<u8>) -> Self {
+        Self { id, size, flags, offset: Some(offset), data, content: None, embedded_frames: None }
     }
 
     /// Parse frame content based on frame ID

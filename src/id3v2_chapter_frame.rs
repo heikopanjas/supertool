@@ -130,13 +130,17 @@ impl fmt::Display for ChapterFrame {
 
 /// Helper function to display embedded frame content with proper indentation matching top-level format
 pub fn display_embedded_frame_content(f: &mut fmt::Formatter<'_>, frame: &Id3v2Frame) -> fmt::Result {
-    // Show frame header information similar to top-level frames (but without offset since embedded frames don't have file offsets)
-    let id_bytes = frame.id.as_bytes();
-    writeln!(
-        f,
-        "          Frame ID bytes = [0x{:02X}, 0x{:02X}, 0x{:02X}, 0x{:02X}] (\"{}\"), Size: {} bytes, Flags: 0x{:04X}",
-        id_bytes[0], id_bytes[1], id_bytes[2], id_bytes[3], frame.id, frame.size, frame.flags
-    )?;
+    // Use the new unified frame header display function
+    let mut buffer = Vec::new();
+    if let Err(_) = crate::id3v2_tools::display_frame_header(&mut buffer, frame, "          ") {
+        // Fallback to basic display if header function fails
+        writeln!(f, "          Frame: {} - Size: {} bytes", frame.id, frame.size)?;
+    } else {
+        // Convert buffer to string and write to formatter
+        if let Ok(header_str) = String::from_utf8(buffer) {
+            write!(f, "{}", header_str)?;
+        }
+    }
 
     // Format embedded frames like top-level frames but with embedded indentation
     writeln!(f, "          Frame: {} ({}) - Size: {} bytes", frame.id, get_frame_description(&frame.id), frame.size)?;

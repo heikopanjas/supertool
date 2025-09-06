@@ -1,9 +1,7 @@
 use crate::cli::{Cli, Commands};
 use clap::Parser;
 use std::fs::File;
-use std::io::Write;
 use std::path::PathBuf;
-use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 mod cli;
 mod dissector_builder;
@@ -40,8 +38,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn dissect_file(file_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
-    let mut stdout = StandardStream::stdout(ColorChoice::Auto);
-
     // Open file
     let mut file = File::open(file_path)?;
 
@@ -50,13 +46,8 @@ fn dissect_file(file_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
     let dissector = builder.build_for_file(&mut file)?;
 
     // Print file info
-    stdout.set_color(ColorSpec::new().set_fg(Some(Color::Cyan)).set_bold(true))?;
-    writeln!(&mut stdout, "Analyzing file: {}", file_path.display())?;
-    stdout.reset()?;
-
-    stdout.set_color(ColorSpec::new().set_fg(Some(Color::Green)))?;
-    writeln!(&mut stdout, "Detected format: {} ({})", dissector.media_type(), dissector.name())?;
-    stdout.reset()?;
+    println!("Analyzing file: {}", file_path.display());
+    println!("Detected format: {} ({})", dissector.media_type(), dissector.name());
 
     // Perform dissection
     dissector.dissect(&mut file)?;
