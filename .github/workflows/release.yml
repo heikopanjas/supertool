@@ -26,11 +26,6 @@ jobs:
                       x86_64-pc-windows-gnu
                       aarch64-pc-windows-gnullvm
 
-            - name: Install cross-compilation dependencies
-              run: |
-                  sudo apt-get update
-                  sudo apt-get install -y gcc-mingw-w64-x86-64
-
             - name: Cache dependencies
               uses: actions/cache@v4
               with:
@@ -40,20 +35,13 @@ jobs:
                       target
                   key: ubuntu-cross-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-            - name: Build Linux binary
-              run: cargo build --release --target x86_64-unknown-linux-gnu
-
-            - name: Build macOS Intel binary
-              run: cargo build --release --target x86_64-apple-darwin
-
-            - name: Build macOS Apple Silicon binary
-              run: cargo build --release --target aarch64-apple-darwin
-
-            - name: Build Windows binary
-              run: cargo build --release --target x86_64-pc-windows-gnu
-
-            - name: Build Windows ARM binary
-              run: cargo build --release --target aarch64-pc-windows-gnullvm
+            - name: Build all targets
+              run: |
+                  cargo build --release --target x86_64-unknown-linux-gnu
+                  cargo build --release --target x86_64-apple-darwin
+                  cargo build --release --target aarch64-apple-darwin
+                  cargo build --release --target x86_64-pc-windows-gnu
+                  cargo build --release --target aarch64-pc-windows-gnullvm
 
             - name: Prepare release artifacts
               run: |
